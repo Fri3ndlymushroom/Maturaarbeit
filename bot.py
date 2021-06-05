@@ -88,7 +88,9 @@ class ModelAgent():
         model = tf.keras.models.Sequential()
 
         # inputs sind: xDelta, yDelta, zDelta, car speed
-        model.add(tf.keras.layers.Dense(3, input_shape=(6,), activation="relu"))
+        model.add(tf.keras.layers.Dense(3, input_shape=(4,), activation="relu"))
+        model.add(tf.keras.layers.Dense(64, activation="relu"))
+        model.add(tf.keras.layers.Dense(64, activation="relu"))
         model.add(tf.keras.layers.Dense(64, activation="relu"))
         model.add(tf.keras.layers.Dense(64, activation="relu"))
         model.add(tf.keras.layers.Dense(self.ACTION_SPACE_SIZE, activation="linear"))# anzahl möglicher output controlls
@@ -113,8 +115,6 @@ class ModelAgent():
         # soll abbrechen wenn das replay memory zu klein ist
         if len(self.replay_memory) < self.MIN_REPLAY_MEMORY_SIZE:
             return
-        
-        #print(np.array(self.replay_memory[0][0]).shape)
 
         # batch mit der grösse MINIBATCH_SIZE vom replay memory
         minibatch = random.sample(self.replay_memory, self.MINIBATCH_SIZE)
@@ -172,6 +172,8 @@ class QLearningAgent:
         self.total_step = 1
         self.STEPS_PER_EPISODE = 200
         self.done_accuracy = []
+        self.last_distance = 0
+        self.done = False
 
         # epsilon
         self.epsilon = 1
@@ -219,15 +221,27 @@ class QLearningAgent:
 
         # wichtige parameter berechnen
         target_vector = self.car_location - self.target_location
-        self.state_now = [target_vector.x, target_vector.y, target_vector.z, car_rotation.pitch, car_rotation.yaw, car_rotation.roll]
+        self.state_now = [target_vector.x, target_vector.y, target_vector.z, car_rotation.yaw]
 
+        if self.step == 1:
+            self.last_distance = car_location.dist(self.target_location)
+            self.nearest_distance = 1000000
+        
         # den letzten schritt beurteilen
         if self.should_train:
-
-            self.step_reward += self.MOVE_PENALTY
             # erstmal soll der Bot anhand der distanz zum ziel beurteilt werden
             distance = car_location.dist(self.target_location)
-            self.step_reward -= distance * self.DISTANCE_PENALTY_MULTIPLICATOR
+            delta_distance = self.last_distance - distance - 3200
+            if distance > self.nearest_distance:
+                delta_distance = -3200
+
+
+            self.step_reward += self.MOVE_PENALTY
+            self.last_distance = distance
+            if(distance < self.nearest_distance):
+                self.nearest_distance = distance
+
+            self.step_reward += (delta_distance) * self.DISTANCE_PENALTY_MULTIPLICATOR
             self.episode_reward += self.step_reward
 
             if distance < 100:
@@ -289,7 +303,7 @@ class QLearningAgent:
 
 
     def manageEpisodes(self):
-        if self.step == self.STEPS_PER_EPISODE:
+        if self.step == self.STEPS_PER_EPISODE or self.done:
             self.step = 1
 
         if self.step == 1:
@@ -303,6 +317,8 @@ class QLearningAgent:
             self.should_train = True
         
         self.step_reward = 0
+
+
 
 
         
