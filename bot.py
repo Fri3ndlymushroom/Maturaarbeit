@@ -34,7 +34,7 @@ debugLog( "keras: " + tf.keras.__version__)
 import time
 
 import logging
-tf.get_logger().setLevel(logging.ERROR)
+tf.get_logger().setLevel(3)
 
 from collections import deque
 import numpy as np
@@ -89,10 +89,14 @@ class ModelAgent():
 
         # inputs sind: xDelta, yDelta, zDelta, car speed
         model.add(tf.keras.layers.Dense(3, input_shape=(4,), activation="relu"))
-        model.add(tf.keras.layers.Dense(64, activation="relu"))
-        model.add(tf.keras.layers.Dense(64, activation="relu"))
-        model.add(tf.keras.layers.Dense(64, activation="relu"))
-        model.add(tf.keras.layers.Dense(64, activation="relu"))
+        model.add(tf.keras.layers.Dense(128, activation="relu"))
+        model.add(tf.keras.layers.Dense(128, activation="relu"))
+        model.add(tf.keras.layers.Dense(128, activation="relu"))
+        model.add(tf.keras.layers.Dense(128, activation="relu"))
+        model.add(tf.keras.layers.Dense(128, activation="relu"))
+        model.add(tf.keras.layers.Dense(128, activation="relu"))
+        model.add(tf.keras.layers.Dense(128, activation="relu"))
+        model.add(tf.keras.layers.Dense(128, activation="relu"))
         model.add(tf.keras.layers.Dense(self.ACTION_SPACE_SIZE, activation="linear"))# anzahl möglicher output controlls
         model.compile(loss="mse", optimizer=tf.keras.optimizers.Adam(lr=0.001), metrics=['accuracy'])
         return model
@@ -200,7 +204,7 @@ class QLearningAgent:
 
         #penaltys
         self.MOVE_PENALTY = 1
-        self.DISTANCE_PENALTY_MULTIPLICATOR = 1
+        self.DISTANCE_PENALTY_MULTIPLICATOR = 5
 
 
     
@@ -224,24 +228,20 @@ class QLearningAgent:
         self.state_now = [target_vector.x, target_vector.y, target_vector.z, car_rotation.yaw]
 
         if self.step == 1:
-            self.last_distance = car_location.dist(self.target_location)
-            self.nearest_distance = 1000000
+            self.normalizer = car_location.dist(self.target_location)
         
         # den letzten schritt beurteilen
         if self.should_train:
             # erstmal soll der Bot anhand der distanz zum ziel beurteilt werden
             distance = car_location.dist(self.target_location)
-            delta_distance = self.last_distance - distance - 3200
-            if distance > self.nearest_distance:
-                delta_distance = -3200
 
 
-            self.step_reward += self.MOVE_PENALTY
-            self.last_distance = distance
-            if(distance < self.nearest_distance):
-                self.nearest_distance = distance
+            self.step_reward -= self.MOVE_PENALTY
+            reward_normalized = distance / self.normalizer
 
-            self.step_reward += (delta_distance) * self.DISTANCE_PENALTY_MULTIPLICATOR
+            self.step_reward -= reward_normalized * self.DISTANCE_PENALTY_MULTIPLICATOR
+
+            print(self.step_reward)
             self.episode_reward += self.step_reward
 
             if distance < 100:
@@ -300,8 +300,6 @@ class QLearningAgent:
 
 
 
-
-
     def manageEpisodes(self):
         if self.step == self.STEPS_PER_EPISODE or self.done:
             self.step = 1
@@ -320,7 +318,7 @@ class QLearningAgent:
 
 
 
-
+    
         
     
     def getNearestFullBoost(self):
