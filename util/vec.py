@@ -1,6 +1,8 @@
 import math
 from typing import Union
 
+from numpy import isreal
+
 from rlbot.utils.structures.game_data_struct import Vector3
 
 
@@ -85,6 +87,7 @@ class Vec3:
 
     def normalized(self):
         """Returns a vector with the same direction but a length of one."""
+        if self.x == 0 or self.y == 0 or self.z == 0:return self
         return self / self.length()
 
     def rescale(self, new_len: float) -> 'Vec3':
@@ -107,3 +110,19 @@ class Vec3:
         """Returns the angle to the ideal vector. Angle will be between 0 and pi."""
         cos_ang = self.dot(ideal) / (self.length() * ideal.length())
         return math.acos(cos_ang)
+
+    def clamp2D(direction, start, end):
+        is_right = Vec3.dot(direction, Vec3.cross(end, Vec3(0, 0, -1))) < 0
+        is_left = Vec3.dot(direction, Vec3.cross(start, Vec3(0, 0, -1))) > 0
+        if is_left and is_right:
+            return direction
+        if is_right:
+            return start
+        if is_left:
+            return end
+    
+    def angle(vec1, vec2):
+        frac = (Vec3.dot(vec1, vec2)/(Vec3.length(vec1)*Vec3.length(vec2)))
+        if frac > 1: frac = 1
+        return math.acos(frac)
+        

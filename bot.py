@@ -240,8 +240,6 @@ class QLearningAgent:
             reward_normalized = distance / self.normalizer
 
             self.step_reward -= reward_normalized * self.DISTANCE_PENALTY_MULTIPLICATOR
-
-            print(self.step_reward)
             self.episode_reward += self.step_reward
 
             if distance < 100:
@@ -376,7 +374,7 @@ class MyBot(BaseAgent):
         self.boost_pad_tracker.initialize_boosts(self.get_field_info())
 
     def get_output(self, packet: GameTickPacket) -> SimpleControllerState:
-
+        self.renderer.begin_rendering()
         
         #============[get info]============    
 
@@ -388,7 +386,7 @@ class MyBot(BaseAgent):
         car_velocity = Vec3(my_car.physics.velocity)
         ball_location = Vec3(packet.game_ball.physics.location)
 
-
+        self.predictBallPath()
         
 
         
@@ -396,70 +394,23 @@ class MyBot(BaseAgent):
        
 
         #============[decision]============
-        target = "steerTowardsTarget_train"
+        target = "shoot_towards_goal"
         
         #============[execution & controls]============
+        controls = SimpleControllerState()
         if target == "boost":
             target_location = Vec3(self.getNearestFullBoost(packet))
 
             controls = self.steerTowardsTarget(my_car, car_velocity, target_location)
         elif target == "steerTowardsTarget_train":
+            action = 10
+            #action = learningAgent.getAction(field_info, car_location, packet, car_rotation)
+        elif target == "shoot_towards_goal":
+            target = self.shootBallTowardsTarget(packet, Vec3(800, 5213, 321.3875), Vec3(-800, 5213, 321.3875))
+            controls.steer = steer_toward_target(my_car, target)
+            controls.throttle = 1.0
 
-            action = learningAgent.getAction(field_info, car_location, packet, car_rotation)
-
-
-        self.renderer.begin_rendering()
-        self.renderer.draw_line_3d(car_location, learningAgent.target_location, self.renderer.white())
         self.renderer.end_rendering()
-
-        
-        #self.renderText("none")
-
-        controls = SimpleControllerState()
-
-
-        
-        """
-        if action == 0: 
-            controls.throttle = 1.0
-        elif action == 1:
-            controls.throttle = -1.0
-        elif action == 2:
-            controls.steer = 1.0
-        elif action == 3:
-            controls.steer = -1.0
-        elif action == 4:
-            controls.pitch = 1.0
-        elif action == 5:
-            controls.pitch = -1.0
-        elif action == 6:
-            controls.yaw = 1.0
-        elif action == 7:
-            controls.yaw = -1.0
-        elif action == 8:
-            controls.roll = 1.0
-        elif action == 9:
-            controls.roll = -1.0
-        elif action == 10:
-            controls.jump = True
-        elif action == 11:
-            controls.bosst = True
-        elif action == 12:
-            controls.handbrake = True
-        """
-
-        if action == 0: 
-            controls.throttle = 1.0
-        elif action == 1:
-            controls.throttle = -1.0
-        elif action == 2:
-            controls.steer = 1.0
-            controls.throttle = 1.0
-        elif action == 3:
-            controls.steer = -1.0
-            controls.throttle = 1.0
-
-
         return controls
 
     def renderText(self, text):
@@ -469,14 +420,71 @@ class MyBot(BaseAgent):
 
 
     
+    def shootBallTowardsTarget(self, packet, left_most_target, right_most_target):
+        ball_location = Vec3(packet.game_ball.physics.location)
+        car_location = Vec3(packet.game_cars[self.index].physics.location)
+
+        
+
+        car_to_ball = ball_location - car_location
+        car_to_ball_direction = Vec3.normalized(car_to_ball)
+
+        ball_to_left_target_direction = Vec3.normalized(left_most_target - ball_location)
+        ball_to_right_target_direction = Vec3.normalized(right_most_target - ball_location)
+        direction_of_approach = Vec3.clamp2D(direction=car_to_ball_direction, start=ball_to_left_target_direction, end=ball_to_right_target_direction)
+
+        offset_ball_location = ball_location - direction_of_approach * 92.75
+
+        side_of_approach_direction = Vec3.dot(Vec3.cross(direction_of_approach, Vec3(0, 0, 1)), ball_location - car_location)
+        if side_of_approach_direction > 0: side_of_approach_direction = 1
+        elif side_of_approach_direction < 0: side_of_approach_direction = -1
+        else: side_of_approach_direction = 0
+
+        if Vec3.cross(car_to_ball, Vec3(0, 0, side_of_approach_direction)) != round(0):
+            print(Vec3.cross(car_to_ball, Vec3(0, 0, side_of_approach_direction)))
+            car_to_ball_perpendicular = Vec3.normalized(Vec3.cross(car_to_ball, Vec3(0, 0, side_of_approach_direction)))
+        else:
+            car_to_ball_perpendicular = car_to_ball
+
+        adjustment = Vec3.angle(Vec3.flat(car_to_ball), Vec3.flat(direction_of_approach)) * 2560
+        if (adjustment < 0):adjustment = -adjustment
+        final_target = offset_ball_location + (car_to_ball_perpendicular * adjustment)
+
+        
+        #self.renderer.draw_line_3d(car_location, ball_location, self.renderer.white())
+        self.renderer.draw_line_3d(ball_location, ball_location+ball_to_left_target_direction*10000, self.renderer.white())
+        self.renderer.draw_line_3d(ball_location, ball_location+ball_to_right_target_direction*10000, self.renderer.white())
+        self.renderer.draw_line_3d(ball_location, ball_location+ball_to_left_target_direction*-10000, self.renderer.white())
+        self.renderer.draw_line_3d(ball_location, ball_location+ball_to_right_target_direction*-10000, self.renderer.white())
+        self.renderer.draw_line_3d(ball_location, car_location+direction_of_approach*10000, self.renderer.red())
+        #self.renderer.draw_line_3d(ball_location, car_location+car_to_ball_perpendicular, self.renderer.red())
+        self.renderer.draw_line_3d(car_location, final_target, self.renderer.red())
+        
+
+        return final_target
+
+        
+    def predictBallPath(self):
+        ball_prediction = self.get_ball_prediction_struct()
+
+        loc1 = None
+        loc2 = None
+
+        if ball_prediction is not None:
+            for i in range(0, ball_prediction.num_slices):
+                prediction_slice = ball_prediction.slices[i]
+                location = prediction_slice.physics.location
+
+                if (i-1) % 2 == 0:
+                    loc2 = location
+                else:
+                    loc1 = location
+
+                if loc1 is not None and loc2 is not None:
+                    self.renderer.draw_line_3d(loc1, loc2, self.renderer.yellow())
     
 
-
     def begin_front_flip(self, packet):
-        # Send some quickchat just for fun
-        self.send_quick_chat(
-            team_only=False, quick_chat=QuickChatSelection.Information_IGotIt)
-
         # Do a front flip. We will be committed to this for a few seconds and the bot will ignore other
         # logic during that time because we are setting the active_sequence.
         self.active_sequence = Sequence([
@@ -491,6 +499,3 @@ class MyBot(BaseAgent):
 
         # Return the controls associated with the beginning of the sequence so we can start right away.
         return self.active_sequence.tick(packet)
-
-
-
