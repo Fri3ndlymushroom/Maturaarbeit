@@ -441,7 +441,6 @@ class MyBot(BaseAgent):
         else: side_of_approach_direction = 0
 
         if Vec3.cross(car_to_ball, Vec3(0, 0, side_of_approach_direction)) != round(0):
-            print(Vec3.cross(car_to_ball, Vec3(0, 0, side_of_approach_direction)))
             car_to_ball_perpendicular = Vec3.normalized(Vec3.cross(car_to_ball, Vec3(0, 0, side_of_approach_direction)))
         else:
             car_to_ball_perpendicular = car_to_ball
@@ -499,3 +498,12 @@ class MyBot(BaseAgent):
 
         # Return the controls associated with the beginning of the sequence so we can start right away.
         return self.active_sequence.tick(packet)
+    
+    def computePossibleArcLineArcDrivePaths(self, packet, target_location):
+        my_car = packet.game_cars[self.index]
+        car_location = Vec3(my_car.physics.location)
+        car_rotation = my_car.physics.rotation
+        car_velocity = Vec3(my_car.physics.velocity)
+
+
+
