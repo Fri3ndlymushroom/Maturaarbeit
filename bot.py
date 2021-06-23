@@ -8,7 +8,7 @@ from util.drive import steer_toward_target
 from util.sequence import Sequence, ControlStep
 from util.vec import Vec3
 
-
+import math
 
 
 from tkinter import Tk, Text, END
@@ -406,8 +406,11 @@ class MyBot(BaseAgent):
             action = 10
             #action = learningAgent.getAction(field_info, car_location, packet, car_rotation)
         elif target == "shoot_towards_goal":
-            target = self.shootBallTowardsTarget(packet, Vec3(800, 5213, 321.3875), Vec3(-800, 5213, 321.3875))
-            controls.steer = steer_toward_target(my_car, target)
+            target_location_info = self.shootBallTowardsTarget(packet, Vec3(800, 5213, 321.3875), Vec3(-800, 5213, 321.3875))
+            self.computePossibleArcLineArcDrivePaths(packet, target_location_info[0], target_location_info[1])
+
+            #controls.steer = steer_toward_target(my_car, target)
+            controls.steer =0.1
             controls.throttle = 1.0
 
         self.renderer.end_rendering()
@@ -435,6 +438,7 @@ class MyBot(BaseAgent):
 
         offset_ball_location = ball_location - direction_of_approach * 92.75
 
+        """
         side_of_approach_direction = Vec3.dot(Vec3.cross(direction_of_approach, Vec3(0, 0, 1)), ball_location - car_location)
         if side_of_approach_direction > 0: side_of_approach_direction = 1
         elif side_of_approach_direction < 0: side_of_approach_direction = -1
@@ -448,19 +452,20 @@ class MyBot(BaseAgent):
         adjustment = Vec3.angle(Vec3.flat(car_to_ball), Vec3.flat(direction_of_approach)) * 2560
         if (adjustment < 0):adjustment = -adjustment
         final_target = offset_ball_location + (car_to_ball_perpendicular * adjustment)
+        """
 
-        
         #self.renderer.draw_line_3d(car_location, ball_location, self.renderer.white())
-        self.renderer.draw_line_3d(ball_location, ball_location+ball_to_left_target_direction*10000, self.renderer.white())
-        self.renderer.draw_line_3d(ball_location, ball_location+ball_to_right_target_direction*10000, self.renderer.white())
-        self.renderer.draw_line_3d(ball_location, ball_location+ball_to_left_target_direction*-10000, self.renderer.white())
-        self.renderer.draw_line_3d(ball_location, ball_location+ball_to_right_target_direction*-10000, self.renderer.white())
-        self.renderer.draw_line_3d(ball_location, car_location+direction_of_approach*10000, self.renderer.red())
+        self.renderer.draw_line_3d(ball_location, ball_location+ball_to_left_target_direction*1000, self.renderer.white())
+        self.renderer.draw_line_3d(ball_location, ball_location+ball_to_right_target_direction*1000, self.renderer.white())
+        self.renderer.draw_line_3d(ball_location, ball_location+ball_to_left_target_direction*-1000, self.renderer.white())
+        self.renderer.draw_line_3d(ball_location, ball_location+ball_to_right_target_direction*-1000, self.renderer.white())
+        #self.renderer.draw_line_3d(offset_ball_location,offset_ball_location+ direction_of_approach*10000, self.renderer.red())
         #self.renderer.draw_line_3d(ball_location, car_location+car_to_ball_perpendicular, self.renderer.red())
-        self.renderer.draw_line_3d(car_location, final_target, self.renderer.red())
+        #self.renderer.draw_line_3d(car_location, final_target, self.renderer.red())
+
         
 
-        return final_target
+        return [offset_ball_location, direction_of_approach]
 
         
     def predictBallPath(self):
@@ -499,11 +504,63 @@ class MyBot(BaseAgent):
         # Return the controls associated with the beginning of the sequence so we can start right away.
         return self.active_sequence.tick(packet)
     
-    def computePossibleArcLineArcDrivePaths(self, packet, target_location):
+    def computePossibleArcLineArcDrivePaths(self, packet, target_location, target_direction):
         my_car = packet.game_cars[self.index]
         car_location = Vec3(my_car.physics.location)
         car_rotation = my_car.physics.rotation
         car_velocity = Vec3(my_car.physics.velocity)
+        radius = self.getSteeringRadius(car_velocity, car_rotation)
+        # make the direction vector of the car
+
+        # car circles
+        car_direction = Vec3(math.cos(car_rotation.yaw), math.sin(car_rotation.yaw), 0)
+        self.renderer.draw_line_3d(car_location,car_location+ car_direction*200, self.renderer.yellow())
+        
+        car_circle1_center_location = Vec3.normalized(Vec3.cross(car_direction, Vec3(0, 0, 1))) * radius + car_location
+        car_circle2_center_location = Vec3.normalized(Vec3.cross(car_direction, Vec3(0, 0, 1))) * -radius + car_location
+
+        car_circle1_point_locations = self.getPointsInSircle(11, radius, car_circle1_center_location)
+        car_circle2_point_locations = self.getPointsInSircle(11, radius, car_circle2_center_location)
+
+        self.renderer.draw_polyline_3d(car_circle1_point_locations, self.renderer.yellow())
+        self.renderer.draw_polyline_3d(car_circle2_point_locations, self.renderer.yellow())
+
+        # target circles
+        self.renderer.draw_line_3d(target_location,target_location+ target_direction*200, self.renderer.yellow())
+
+        target_circle1_center_location = Vec3.normalized(Vec3.cross(target_direction, Vec3(0, 0, 1))) * radius + target_location
+        target_circle2_center_location = Vec3.normalized(Vec3.cross(target_direction, Vec3(0, 0, 1))) * -radius + target_location
+
+        target_circle1_point_locations = self.getPointsInSircle(11, radius, target_circle1_center_location)
+        target_circle2_point_locations = self.getPointsInSircle(11, radius, target_circle2_center_location)
+
+        self.renderer.draw_polyline_3d(target_circle1_point_locations, self.renderer.yellow())
+        self.renderer.draw_polyline_3d(target_circle2_point_locations, self.renderer.yellow())
+
+        
+    
+    def getSteeringRadius(self, car_velocity, car_rotation):
+        velocity = Vec3.dot(car_velocity, Vec3.normalized(Vec3(math.cos(car_rotation.yaw), math.sin(car_rotation.yaw), 0)))
+        curvature = 0.0069
+        if velocity > 2300: curvature = 0.0008
+        elif velocity > 1750: curvature = 0.0011
+        elif velocity > 1500: curvature = 0.001375
+        elif velocity > 1000: curvature = 0.00235
+        elif velocity > 500: curvature = 0.00598
+
+        radius = 1/curvature
+
+        return(radius)
+
+    def getPointsInSircle(self, every, radius, center):
+        circle_positions = []
+        for i in range(every):
+            angle = 7 / every * i
+            circle_positions.append(Vec3(radius * math.sin(angle), radius * -math.cos(angle), 0) + center)
+        return(circle_positions)
+
+
+
 
 
 
