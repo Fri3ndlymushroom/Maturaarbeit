@@ -7,6 +7,7 @@ from util.boost_pad_tracker import BoostPadTracker
 from util.drive import steer_toward_target
 from util.sequence import Sequence, ControlStep
 from util.vec import Vec3
+from util.orientation import Orientation
 
 import math
 
@@ -410,8 +411,8 @@ class MyBot(BaseAgent):
             self.computePossibleArcLineArcDrivePaths(packet, target_location_info[0], target_location_info[1])
 
             #controls.steer = steer_toward_target(my_car, target)
-            controls.steer =0.1
-            controls.throttle = 1.0
+            controls.steer =0
+            controls.throttle = 0
 
         self.renderer.end_rendering()
         return controls
@@ -505,42 +506,164 @@ class MyBot(BaseAgent):
         return self.active_sequence.tick(packet)
     
     def computePossibleArcLineArcDrivePaths(self, packet, target_location, target_direction):
-        my_car = packet.game_cars[self.index]
+        my_car = packet.game_cars[1]
         car_location = Vec3(my_car.physics.location)
         car_rotation = my_car.physics.rotation
         car_velocity = Vec3(my_car.physics.velocity)
-        radius = self.getSteeringRadius(car_velocity, car_rotation)
-        # make the direction vector of the car
+        steering_radius = self.getSteeringRadius(car_velocity, car_rotation)
+
 
         # car circles
-        car_direction = Vec3(math.cos(car_rotation.yaw), math.sin(car_rotation.yaw), 0)
+        car_direction = Orientation(car_rotation).forward
         self.renderer.draw_line_3d(car_location,car_location+ car_direction*200, self.renderer.yellow())
         
-        car_circle1_center_location = Vec3.normalized(Vec3.cross(car_direction, Vec3(0, 0, 1))) * radius + car_location
-        car_circle2_center_location = Vec3.normalized(Vec3.cross(car_direction, Vec3(0, 0, 1))) * -radius + car_location
 
-        car_circle1_point_locations = self.getPointsInSircle(11, radius, car_circle1_center_location)
-        car_circle2_point_locations = self.getPointsInSircle(11, radius, car_circle2_center_location)
+        # car circle 1
+        Mc1 = Circle()
+        Mc1.location = Vec3.normalized(Vec3.cross(car_direction, Vec3(0, 0, 1))) * steering_radius + car_location
+        Mc1.radius = steering_radius
+        # render
+        Mc1.points = self.getPointsInSircle(11, Mc1.radius, Mc1.location)
+        self.renderer.draw_polyline_3d(Mc1.points, self.renderer.yellow())
 
-        self.renderer.draw_polyline_3d(car_circle1_point_locations, self.renderer.yellow())
-        self.renderer.draw_polyline_3d(car_circle2_point_locations, self.renderer.yellow())
+        # car circle 2
+        Mc2 = Circle()
+        Mc2.location = Vec3.normalized(Vec3.cross(car_direction, Vec3(0, 0, 1))) * -steering_radius + car_location
+        Mc2.radius = steering_radius
+        # render
+        Mc2.points = self.getPointsInSircle(11, Mc2.radius, Mc2.location)
+        #self.renderer.draw_polyline_3d(Mc2.points, self.renderer.yellow())
+
 
         # target circles
-        self.renderer.draw_line_3d(target_location,target_location+ target_direction*200, self.renderer.yellow())
+        self.renderer.draw_line_3d(target_location,target_location+ target_direction*100, self.renderer.red())
 
-        target_circle1_center_location = Vec3.normalized(Vec3.cross(target_direction, Vec3(0, 0, 1))) * radius + target_location
-        target_circle2_center_location = Vec3.normalized(Vec3.cross(target_direction, Vec3(0, 0, 1))) * -radius + target_location
 
-        target_circle1_point_locations = self.getPointsInSircle(11, radius, target_circle1_center_location)
-        target_circle2_point_locations = self.getPointsInSircle(11, radius, target_circle2_center_location)
+        # target circle 1
+        Mt1 = Circle()
+        Mt1.location = Vec3.normalized(Vec3.cross(target_direction, Vec3(0, 0, 1))) * steering_radius + target_location
+        Mt1.radius = steering_radius   
+        # render
+        Mt1.points = self.getPointsInSircle(11, Mt1.radius, Mt1.location)
+        self.renderer.draw_polyline_3d(Mt1.points, self.renderer.yellow())
 
-        self.renderer.draw_polyline_3d(target_circle1_point_locations, self.renderer.yellow())
-        self.renderer.draw_polyline_3d(target_circle2_point_locations, self.renderer.yellow())
+        # target circle 2
+        Mt2 = Circle()
+        Mt2.location = Vec3.normalized(Vec3.cross(target_direction, Vec3(0, 0, 1))) * -steering_radius + target_location
+        Mt2.radius = steering_radius
+        # render
+        Mt2.points = self.getPointsInSircle(11, Mt2.radius, Mt2.location)
+        #self.renderer.draw_polyline_3d(Mt2.points, self.renderer.yellow())
 
+
+        # bigger car circle
+        Mbc1 = Circle()
+        Mbc1.location = Mc1.location
+        Mbc1.radius = Mc1.radius + Mt1.radius
+        # render
+        Mbc1.points = self.getPointsInSircle(10,  Mbc1.radius, Mbc1.location)
+        self.renderer.draw_polyline_3d(Mbc1.points, self.renderer.yellow())
+
+        # middle circle
+        Mm1 = Circle()
+        Mm1.location = Mc1.location +  (Mt1.location - Mc1.location)*0.5
+        Mm1.radius = Vec3.length((Mt1.location - Mc1.location)*0.5)
+        # render
+        Mm1.points = self.getPointsInSircle(10,  Mm1.radius, Mm1.location)
+        self.renderer.draw_polyline_3d(Mm1.points, self.renderer.yellow())
+
+        # intersections
+        Mm1_Mbc1_intersections = self.getIntersections(Mm1.location.x, Mm1.location.y, Mm1.radius, Mbc1.location.x, Mbc1.location.y, Mbc1.radius)
+
+        Pc1 = Vec3(Mm1_Mbc1_intersections[0], Mm1_Mbc1_intersections[1], 0)
+        Pc2 = Vec3(Mm1_Mbc1_intersections[2], Mm1_Mbc1_intersections[3], 0)
+
+        # bigger target circle
+        Mbt1 = Circle()
+        Mbt1.location = Mt1.location
+        Mbt1.radius = Mc1.radius + Mt1.radius
+        # render
+        Mbt1.points = self.getPointsInSircle(10,  Mbt1.radius, Mbt1.location)
+        self.renderer.draw_polyline_3d(Mbt1.points, self.renderer.yellow())
+
+        # middle circle
+        Mm1 = Circle()
+        Mm1.location = Mc1.location +  (Mt1.location - Mc1.location)*0.5
+        Mm1.radius = Vec3.length((Mt1.location - Mc1.location)*0.5)
+        # render
+        Mm1.points = self.getPointsInSircle(10,  Mm1.radius, Mm1.location)
+        self.renderer.draw_polyline_3d(Mm1.points, self.renderer.yellow())
+
+        # intersections
+        Mm1_Mbt1_intersections = self.getIntersections(Mm1.location.x, Mm1.location.y, Mm1.radius, Mbt1.location.x, Mbt1.location.y, Mbt1.radius)
+
+        Pt1 = Vec3(Mm1_Mbt1_intersections[0], Mm1_Mbt1_intersections[1], 0)
+        Pt2 = Vec3(Mm1_Mbt1_intersections[2], Mm1_Mbt1_intersections[3], 0)
+
+        # tangent car points
+        Tpc1 = Vec3.normalized(Pc1 - Mc1.location)*Mc1.radius + Mc1.location
+
+        # tangent target points
+        Tpt1 = Vec3.normalized(Pt1 - Mt1.location)*Mt1.radius + Mt1.location
+
+
+        self.renderer.draw_line_3d(Tpt1, Tpc1, self.renderer.white())
+        
+
+    """
+    def getCrossTangents(self, C1, C2):
+
+        # middle circle
+        C3 = Circle()
+        C3.location = C1.location +  (C2.location - C1.location)*0.5
+        C3.radius = Vec3.length((C2.location - C1.location)*0.5)
+
+        # bigger car circle
+        C4 = Circle()
+        C4.location = C1.location
+        C4.radius = C1.radius + C2.radius
+
+        # bigger target circle
+        C5 = Circle()
+        C5.location = C2.location
+        C5.radius = C1.radius + C2.radius
+
+        C4intersections = self.getIntersections(C3.location.x, C3.location.y, C3.radius, C4.location.x, C4.location.y, C4.radius)
+        C5intersections = self.getIntersections(C3.location.x, C3.location.y, C3.radius, C5.location.x, C5.location.y, C5.radius)
+
+        C4t1 = Vec3(C4intersections[0], C4intersections[1], 0)
+        C4t2 = Vec3(C4intersections[2], C4intersections[3], 0)
+        C5t1 = Vec3(C5intersections[0], C5intersections[1], 0)
+        C5t2 = Vec3(C5intersections[2], C5intersections[3], 0)
+
+        return[[C4t1,C5t1], [C4t2, C5t2]]
+"""
+
+
+
+        
+
+    def getIntersections(self, x0, y0, r0, x1, y1, r1):
+
+
+        d=math.sqrt((x1-x0)**2 + (y1-y0)**2)
+        
+
+        a=(r0**2-r1**2+d**2)/(2*d)
+        h=math.sqrt(r0**2-a**2)
+        x2=x0+a*(x1-x0)/d   
+        y2=y0+a*(y1-y0)/d   
+        x3=x2+h*(y1-y0)/d     
+        y3=y2-h*(x1-x0)/d 
+
+        x4=x2-h*(y1-y0)/d
+        y4=y2+h*(x1-x0)/d
+            
+        return (x3, y3, x4, y4)
         
     
     def getSteeringRadius(self, car_velocity, car_rotation):
-        velocity = Vec3.dot(car_velocity, Vec3.normalized(Vec3(math.cos(car_rotation.yaw), math.sin(car_rotation.yaw), 0)))
+        velocity = Vec3.dot(car_velocity, Vec3.normalized(Orientation(car_rotation).forward))
         curvature = 0.0069
         if velocity > 2300: curvature = 0.0008
         elif velocity > 1750: curvature = 0.0011
@@ -556,11 +679,17 @@ class MyBot(BaseAgent):
         circle_positions = []
         for i in range(every):
             angle = 7 / every * i
-            circle_positions.append(Vec3(radius * math.sin(angle), radius * -math.cos(angle), 0) + center)
+            location = Vec3(radius * math.sin(angle), radius * -math.cos(angle), 0) + center
+            location.z = 4
+            circle_positions.append(location)
         return(circle_positions)
 
 
 
-
+class Circle:
+    def __init__(self):
+        self.location = Vec3(0, 0, 0)
+        self.radius = 0
+        self.points = []
 
 
