@@ -532,7 +532,7 @@ class MyBot(BaseAgent):
         Mc2.radius = steering_radius
         # render
         Mc2.points = self.getPointsInSircle(11, Mc2.radius, Mc2.location)
-        #self.renderer.draw_polyline_3d(Mc2.points, self.renderer.yellow())
+        self.renderer.draw_polyline_3d(Mc2.points, self.renderer.yellow())
 
 
         # target circles
@@ -545,7 +545,7 @@ class MyBot(BaseAgent):
         Mt1.radius = steering_radius   
         # render
         Mt1.points = self.getPointsInSircle(11, Mt1.radius, Mt1.location)
-        self.renderer.draw_polyline_3d(Mt1.points, self.renderer.yellow())
+        #self.renderer.draw_polyline_3d(Mt1.points, self.renderer.yellow())
 
         # target circle 2
         Mt2 = Circle()
@@ -555,7 +555,18 @@ class MyBot(BaseAgent):
         Mt2.points = self.getPointsInSircle(11, Mt2.radius, Mt2.location)
         #self.renderer.draw_polyline_3d(Mt2.points, self.renderer.yellow())
 
+        tangents = self.getCrossTangents(Mc1, Mt2)
+        tangents = self.getCrossTangents(Mc2, Mt1)
+        tangents = self.getStraightTangents(Mc1, Mt2, car_location)
+        tangents = self.getStraightTangents(Mc2, Mt1, car_location)
 
+
+
+
+
+
+
+        """
         # bigger car circle
         Mbc1 = Circle()
         Mbc1.location = Mc1.location
@@ -608,9 +619,9 @@ class MyBot(BaseAgent):
 
 
         self.renderer.draw_line_3d(Tpt1, Tpc1, self.renderer.white())
-        
+        """
 
-    """
+    
     def getCrossTangents(self, C1, C2):
 
         # middle circle
@@ -631,13 +642,76 @@ class MyBot(BaseAgent):
         C4intersections = self.getIntersections(C3.location.x, C3.location.y, C3.radius, C4.location.x, C4.location.y, C4.radius)
         C5intersections = self.getIntersections(C3.location.x, C3.location.y, C3.radius, C5.location.x, C5.location.y, C5.radius)
 
-        C4t1 = Vec3(C4intersections[0], C4intersections[1], 0)
-        C4t2 = Vec3(C4intersections[2], C4intersections[3], 0)
-        C5t1 = Vec3(C5intersections[0], C5intersections[1], 0)
-        C5t2 = Vec3(C5intersections[2], C5intersections[3], 0)
+        C1g1 = Vec3(C4intersections[0], C4intersections[1], 0)
+        C1g2 = Vec3(C4intersections[2], C4intersections[3], 0)
+        C2g1 = Vec3(C5intersections[0], C5intersections[1], 0)
+        C2g2 = Vec3(C5intersections[2], C5intersections[3], 0)
 
-        return[[C4t1,C5t1], [C4t2, C5t2]]
-"""
+        C1t1 = Vec3.normalized(C1g1 - C1.location)*C1.radius + C1.location
+        C2t1 = Vec3.normalized(C2g1 - C2.location)*C2.radius + C2.location
+
+        C1t2 = Vec3.normalized(C1g2 - C1.location)*C1.radius + C1.location
+        C2t2 = Vec3.normalized(C2g2 - C2.location)*C2.radius + C2.location
+
+        self.renderer.draw_line_3d(C1t1, C2t1, self.renderer.white())
+        self.renderer.draw_line_3d(C1t2, C2t2, self.renderer.white())
+
+        return[[C1t1,C2t1], [C1t2, C2t2]]
+
+    def getStraightTangents(self, C1, C2, car_location):
+
+        C1.location.z = 0
+        C2.location.z = 0
+
+        # middle circle
+        C3 = Circle()
+        C3.location = C1.location +  (C2.location - C1.location)*0.5
+        C3.radius = Vec3.length((C2.location - C1.location)*0.5)
+
+        # bigger car circle
+        C4 = Circle()
+        C4.location = C1.location
+        C4.radius = C1.radius - C2.radius+ 1
+
+        
+
+        # bigger target circle
+        C5 = Circle()
+        C5.location = C2.location
+        C5.radius = C2.radius - C1.radius + 1
+
+        C4intersections = self.getIntersections(C3.location.x, C3.location.y, C3.radius, C4.location.x, C4.location.y, C4.radius)
+        C5intersections = self.getIntersections(C3.location.x, C3.location.y, C3.radius, C5.location.x, C5.location.y, C5.radius)
+
+        C1g1 = Vec3(C4intersections[0], C4intersections[1], 0)
+        C1g2 = Vec3(C4intersections[2], C4intersections[3], 0)
+        C2g1 = Vec3(C5intersections[0], C5intersections[1], 0)
+        C2g2 = Vec3(C5intersections[2], C5intersections[3], 0)
+
+        #self.renderer.draw_line_3d(car_location, C1g1, self.renderer.white())
+        #self.renderer.draw_line_3d(car_location, C1.location, self.renderer.red())
+
+        
+        
+        
+        C1t1 = Vec3.normalized(C1g1 - C1.location)*C1.radius + C1.location
+        C2t2 = Vec3.normalized(C2g2 - C2.location)*C2.radius + C2.location
+
+        C2t1 = Vec3.normalized(C2g1 - C2.location)*C2.radius + C2.location
+        C1t2 = Vec3.normalized(C1g2 - C1.location)*C1.radius + C1.location
+
+
+        C1t1.z = 4
+        C1t2.z = 4
+        C2t1.z = 4
+        C2t2.z = 4
+
+        self.renderer.draw_line_3d(C1t1, C2t2, self.renderer.white())
+        self.renderer.draw_line_3d(C1t2, C2t1, self.renderer.white())
+
+
+        return[[C1t1,C2t2], [C2t1, C1t2]]
+
 
 
 
