@@ -411,8 +411,8 @@ class MyBot(BaseAgent):
             self.computePossibleArcLineArcDrivePaths(packet, target_location_info[0], target_location_info[1])
 
             #controls.steer = steer_toward_target(my_car, target)
-            controls.steer =0
-            controls.throttle = 0
+            controls.steer =1
+            controls.throttle = 0.1
 
         self.renderer.end_rendering()
         return controls
@@ -506,6 +506,7 @@ class MyBot(BaseAgent):
         return self.active_sequence.tick(packet)
     
     def computePossibleArcLineArcDrivePaths(self, packet, target_location, target_direction):
+        #my_car = packet.game_cars[self.index]
         my_car = packet.game_cars[1]
         car_location = Vec3(my_car.physics.location)
         car_rotation = my_car.physics.rotation
@@ -522,17 +523,19 @@ class MyBot(BaseAgent):
         Mc1 = Circle()
         Mc1.location = Vec3.normalized(Vec3.cross(car_direction, Vec3(0, 0, 1))) * steering_radius + car_location
         Mc1.radius = steering_radius
+        Mc1.rotation = -1
         # render
         Mc1.points = self.getPointsInSircle(11, Mc1.radius, Mc1.location)
-        self.renderer.draw_polyline_3d(Mc1.points, self.renderer.yellow())
+        self.renderer.draw_polyline_3d(Mc1.points, self.renderer.white())
 
         # car circle 2
         Mc2 = Circle()
         Mc2.location = Vec3.normalized(Vec3.cross(car_direction, Vec3(0, 0, 1))) * -steering_radius + car_location
         Mc2.radius = steering_radius
+        Mc2.rotation = 1
         # render
         Mc2.points = self.getPointsInSircle(11, Mc2.radius, Mc2.location)
-        self.renderer.draw_polyline_3d(Mc2.points, self.renderer.yellow())
+        self.renderer.draw_polyline_3d(Mc2.points, self.renderer.white())
 
 
         # target circles
@@ -543,86 +546,31 @@ class MyBot(BaseAgent):
         Mt1 = Circle()
         Mt1.location = Vec3.normalized(Vec3.cross(target_direction, Vec3(0, 0, 1))) * steering_radius + target_location
         Mt1.radius = steering_radius   
+        Mt1.rotation = -1
         # render
         Mt1.points = self.getPointsInSircle(11, Mt1.radius, Mt1.location)
-        #self.renderer.draw_polyline_3d(Mt1.points, self.renderer.yellow())
+        self.renderer.draw_polyline_3d(Mt1.points, self.renderer.white())
 
         # target circle 2
         Mt2 = Circle()
         Mt2.location = Vec3.normalized(Vec3.cross(target_direction, Vec3(0, 0, 1))) * -steering_radius + target_location
         Mt2.radius = steering_radius
+        Mt2.rotation = 1
         # render
         Mt2.points = self.getPointsInSircle(11, Mt2.radius, Mt2.location)
-        #self.renderer.draw_polyline_3d(Mt2.points, self.renderer.yellow())
+        self.renderer.draw_polyline_3d(Mt2.points, self.renderer.white())
 
-        tangents = self.getCrossTangents(Mc1, Mt2)
-        tangents = self.getCrossTangents(Mc2, Mt1)
-        tangents = self.getStraightTangents(Mc1, Mt2, car_location)
-        tangents = self.getStraightTangents(Mc2, Mt1, car_location)
-
-
-
-
+        tangents = self.getCrossTangents(Mc1, Mt2, car_location, target_direction, target_location)
+        tangents = self.getCrossTangents(Mc2, Mt1, car_location, target_direction, target_location)
+        #tangents = self.getStraightTangents(Mc1, Mt2, car_location, target_direction, target_location)
+        #tangents = self.getStraightTangents(Mc2, Mt1, car_location, target_direction, target_location)
+        #tangents = self.getStraightTangents(Mc1, Mt1, car_location, target_direction, target_location)
+        tangents = self.getStraightTangents(Mc2, Mt2, car_location, target_direction, target_location)
 
 
-
-        """
-        # bigger car circle
-        Mbc1 = Circle()
-        Mbc1.location = Mc1.location
-        Mbc1.radius = Mc1.radius + Mt1.radius
-        # render
-        Mbc1.points = self.getPointsInSircle(10,  Mbc1.radius, Mbc1.location)
-        self.renderer.draw_polyline_3d(Mbc1.points, self.renderer.yellow())
-
-        # middle circle
-        Mm1 = Circle()
-        Mm1.location = Mc1.location +  (Mt1.location - Mc1.location)*0.5
-        Mm1.radius = Vec3.length((Mt1.location - Mc1.location)*0.5)
-        # render
-        Mm1.points = self.getPointsInSircle(10,  Mm1.radius, Mm1.location)
-        self.renderer.draw_polyline_3d(Mm1.points, self.renderer.yellow())
-
-        # intersections
-        Mm1_Mbc1_intersections = self.getIntersections(Mm1.location.x, Mm1.location.y, Mm1.radius, Mbc1.location.x, Mbc1.location.y, Mbc1.radius)
-
-        Pc1 = Vec3(Mm1_Mbc1_intersections[0], Mm1_Mbc1_intersections[1], 0)
-        Pc2 = Vec3(Mm1_Mbc1_intersections[2], Mm1_Mbc1_intersections[3], 0)
-
-        # bigger target circle
-        Mbt1 = Circle()
-        Mbt1.location = Mt1.location
-        Mbt1.radius = Mc1.radius + Mt1.radius
-        # render
-        Mbt1.points = self.getPointsInSircle(10,  Mbt1.radius, Mbt1.location)
-        self.renderer.draw_polyline_3d(Mbt1.points, self.renderer.yellow())
-
-        # middle circle
-        Mm1 = Circle()
-        Mm1.location = Mc1.location +  (Mt1.location - Mc1.location)*0.5
-        Mm1.radius = Vec3.length((Mt1.location - Mc1.location)*0.5)
-        # render
-        Mm1.points = self.getPointsInSircle(10,  Mm1.radius, Mm1.location)
-        self.renderer.draw_polyline_3d(Mm1.points, self.renderer.yellow())
-
-        # intersections
-        Mm1_Mbt1_intersections = self.getIntersections(Mm1.location.x, Mm1.location.y, Mm1.radius, Mbt1.location.x, Mbt1.location.y, Mbt1.radius)
-
-        Pt1 = Vec3(Mm1_Mbt1_intersections[0], Mm1_Mbt1_intersections[1], 0)
-        Pt2 = Vec3(Mm1_Mbt1_intersections[2], Mm1_Mbt1_intersections[3], 0)
-
-        # tangent car points
-        Tpc1 = Vec3.normalized(Pc1 - Mc1.location)*Mc1.radius + Mc1.location
-
-        # tangent target points
-        Tpt1 = Vec3.normalized(Pt1 - Mt1.location)*Mt1.radius + Mt1.location
-
-
-        self.renderer.draw_line_3d(Tpt1, Tpc1, self.renderer.white())
-        """
 
     
-    def getCrossTangents(self, C1, C2):
+    def getCrossTangents(self, C1, C2, car_location, target_direction, target_location):
 
         # middle circle
         C3 = Circle()
@@ -653,12 +601,12 @@ class MyBot(BaseAgent):
         C1t2 = Vec3.normalized(C1g2 - C1.location)*C1.radius + C1.location
         C2t2 = Vec3.normalized(C2g2 - C2.location)*C2.radius + C2.location
 
-        self.renderer.draw_line_3d(C1t1, C2t1, self.renderer.white())
-        self.renderer.draw_line_3d(C1t2, C2t2, self.renderer.white())
+        #self.renderer.draw_line_3d(C1t1, C2t1, self.renderer.white())
+        #self.renderer.draw_line_3d(C1t2, C2t2, self.renderer.white())
 
         return[[C1t1,C2t1], [C1t2, C2t2]]
 
-    def getStraightTangents(self, C1, C2, car_location):
+    def getStraightTangents(self, C1, C2, car_location, target_direction, target_location):
 
         C1.location.z = 0
         C2.location.z = 0
@@ -688,6 +636,10 @@ class MyBot(BaseAgent):
         C2g1 = Vec3(C5intersections[0], C5intersections[1], 0)
         C2g2 = Vec3(C5intersections[2], C5intersections[3], 0)
 
+
+
+
+
         #self.renderer.draw_line_3d(car_location, C1g1, self.renderer.white())
         #self.renderer.draw_line_3d(car_location, C1.location, self.renderer.red())
 
@@ -706,9 +658,34 @@ class MyBot(BaseAgent):
         C2t1.z = 4
         C2t2.z = 4
 
-        self.renderer.draw_line_3d(C1t1, C2t2, self.renderer.white())
-        self.renderer.draw_line_3d(C1t2, C2t1, self.renderer.white())
+        self.renderer.draw_line_3d(C1t1, C2t2, self.renderer.red())
+        self.renderer.draw_line_3d(C1t2, C2t1, self.renderer.blue())
 
+        tangentVector1 = C1t1 - C2t2
+        tangentStart1 = C2t2
+        middleToStartVector1 = tangentStart1 - C2.location 
+
+        tangentVector2 = C2t1 - C1t2
+        tangentStart2 = C1t2
+        middleToStartVector2 = tangentStart2 - C2.location 
+
+
+        #angle between target direction and tangent point vector
+
+        print("red", Vec3.angle(tangentVector1, middleToStartVector1), Vec3.angle(tangentVector1, target_direction-C2.location))
+        print("blue", Vec3.angle(tangentVector2, middleToStartVector2), Vec3.angle(tangentVector1, target_direction-C2.location))
+
+        if Vec3.angle(tangentVector1, middleToStartVector1)>90 and Vec3.angle(tangentVector1, target_direction-C2.location)>90:
+            print("red is valid")
+        elif Vec3.angle(tangentVector1, middleToStartVector1)<90 and Vec3.angle(tangentVector1, target_direction-C2.location)<90:
+            print("red is valid")
+        elif Vec3.angle(tangentVector2, middleToStartVector2)>90 and Vec3.angle(tangentVector1, target_direction-C2.location)>90:
+            print("blue is valid")
+        elif Vec3.angle(tangentVector2, middleToStartVector2)<90 and Vec3.angle(tangentVector1, target_direction-C2.location)<90:
+            print("blue is valid")
+
+
+        
 
         return[[C1t1,C2t2], [C2t1, C1t2]]
 
@@ -751,8 +728,9 @@ class MyBot(BaseAgent):
 
     def getPointsInSircle(self, every, radius, center):
         circle_positions = []
-        for i in range(every):
-            angle = 7 / every * i
+        for i in range(every + 1):
+
+            angle = 2 * math.pi / every * (i+1)
             location = Vec3(radius * math.sin(angle), radius * -math.cos(angle), 0) + center
             location.z = 4
             circle_positions.append(location)
@@ -765,5 +743,6 @@ class Circle:
         self.location = Vec3(0, 0, 0)
         self.radius = 0
         self.points = []
+        self.rotation = 0
 
 
