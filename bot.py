@@ -455,14 +455,10 @@ class MyBot(BaseAgent):
         final_target = offset_ball_location + (car_to_ball_perpendicular * adjustment)
         """
 
-        #self.renderer.draw_line_3d(car_location, ball_location, self.renderer.white())
         self.renderer.draw_line_3d(ball_location, ball_location+ball_to_left_target_direction*1000, self.renderer.white())
         self.renderer.draw_line_3d(ball_location, ball_location+ball_to_right_target_direction*1000, self.renderer.white())
         self.renderer.draw_line_3d(ball_location, ball_location+ball_to_left_target_direction*-1000, self.renderer.white())
         self.renderer.draw_line_3d(ball_location, ball_location+ball_to_right_target_direction*-1000, self.renderer.white())
-        #self.renderer.draw_line_3d(offset_ball_location,offset_ball_location+ direction_of_approach*10000, self.renderer.red())
-        #self.renderer.draw_line_3d(ball_location, car_location+car_to_ball_perpendicular, self.renderer.red())
-        #self.renderer.draw_line_3d(car_location, final_target, self.renderer.red())
 
         
 
@@ -513,10 +509,12 @@ class MyBot(BaseAgent):
         car_velocity = Vec3(my_car.physics.velocity)
         steering_radius = self.getSteeringRadius(car_velocity, car_rotation)
 
+        self.renderer.draw_line_3d(target_location,target_location+ target_direction*600, self.renderer.red())
+
 
         # car circles
         car_direction = Orientation(car_rotation).forward
-        self.renderer.draw_line_3d(car_location,car_location+ car_direction*200, self.renderer.yellow())
+        self.renderer.draw_line_3d(car_location,car_location+ car_direction*600, self.renderer.red())
         
 
         # car circle 1
@@ -560,12 +558,28 @@ class MyBot(BaseAgent):
         Mt2.points = self.getPointsInSircle(11, Mt2.radius, Mt2.location)
         self.renderer.draw_polyline_3d(Mt2.points, self.renderer.white())
 
-        tangents = self.getCrossTangents(Mc1, Mt2, car_location, target_direction, target_location)
-        tangents = self.getCrossTangents(Mc2, Mt1, car_location, target_direction, target_location)
-        #tangents = self.getStraightTangents(Mc1, Mt2, car_location, target_direction, target_location)
-        #tangents = self.getStraightTangents(Mc2, Mt1, car_location, target_direction, target_location)
-        #tangents = self.getStraightTangents(Mc1, Mt1, car_location, target_direction, target_location)
-        tangents = self.getStraightTangents(Mc2, Mt2, car_location, target_direction, target_location)
+        possibleTangents = []
+
+
+
+
+        possibleTangents.append(self.getCrossTangents(Mc1, Mt2, car_location, target_direction, target_location)[0])
+        possibleTangents.append(self.getCrossTangents(Mc2, Mt1, car_location, target_direction, target_location)[1])
+
+        possibleTangents.append(self.getStraightTangents(Mc1, Mt1, car_location, target_direction, target_location)[0])
+        possibleTangents.append(self.getStraightTangents(Mc2, Mt2, car_location, target_direction, target_location)[1])
+
+
+        for tangent in possibleTangents:
+            #self.renderer.draw_line_3d(tangent.start, tangent.end, self.renderer.white())
+
+
+            self.renderer.draw_line_3d(tangent.start, tangent.start +tangent.circle_center2, self.renderer.white())
+
+            c1_arc_angle = Vec3.angle(tangent.start - tangent.circle_center2,car_location - tangent.circle_center2) * 180/math.pi
+            c2_arc_angle = Vec3.angle(tangent.end -  tangent.circle_center1, target_location - tangent.circle_center1)* 180/math.pi
+
+            print(c1_arc_angle)
 
 
 
@@ -601,10 +615,28 @@ class MyBot(BaseAgent):
         C1t2 = Vec3.normalized(C1g2 - C1.location)*C1.radius + C1.location
         C2t2 = Vec3.normalized(C2g2 - C2.location)*C2.radius + C2.location
 
-        #self.renderer.draw_line_3d(C1t1, C2t1, self.renderer.white())
-        #self.renderer.draw_line_3d(C1t2, C2t2, self.renderer.white())
+        C1t1.z = 4
+        C1t2.z = 4
+        C2t1.z = 4
+        C2t2.z = 4
 
-        return[[C1t1,C2t1], [C1t2, C2t2]]
+
+        tangent1 = Tangent()
+        tangent1.start = C1t1
+        tangent1.end = C2t1
+        tangent1.circle_center1 = C1.location
+        tangent1.circle_center2 = C2.location
+
+
+    
+        tangent2 = Tangent()
+        tangent2.start = C1t2
+        tangent2.end = C2t2
+        tangent2.circle_center1 = C1.location
+        tangent2.circle_center2 = C2.location
+
+        return[tangent1, tangent2]
+
 
     def getStraightTangents(self, C1, C2, car_location, target_direction, target_location):
 
@@ -639,10 +671,6 @@ class MyBot(BaseAgent):
 
 
 
-
-        #self.renderer.draw_line_3d(car_location, C1g1, self.renderer.white())
-        #self.renderer.draw_line_3d(car_location, C1.location, self.renderer.red())
-
         
         
         
@@ -658,36 +686,23 @@ class MyBot(BaseAgent):
         C2t1.z = 4
         C2t2.z = 4
 
-        self.renderer.draw_line_3d(C1t1, C2t2, self.renderer.red())
-        self.renderer.draw_line_3d(C1t2, C2t1, self.renderer.blue())
-
-        tangentVector1 = C1t1 - C2t2
-        tangentStart1 = C2t2
-        middleToStartVector1 = tangentStart1 - C2.location 
-
-        tangentVector2 = C2t1 - C1t2
-        tangentStart2 = C1t2
-        middleToStartVector2 = tangentStart2 - C2.location 
 
 
-        #angle between target direction and tangent point vector
-
-        print("red", Vec3.angle(tangentVector1, middleToStartVector1), Vec3.angle(tangentVector1, target_direction-C2.location))
-        print("blue", Vec3.angle(tangentVector2, middleToStartVector2), Vec3.angle(tangentVector1, target_direction-C2.location))
-
-        if Vec3.angle(tangentVector1, middleToStartVector1)>90 and Vec3.angle(tangentVector1, target_direction-C2.location)>90:
-            print("red is valid")
-        elif Vec3.angle(tangentVector1, middleToStartVector1)<90 and Vec3.angle(tangentVector1, target_direction-C2.location)<90:
-            print("red is valid")
-        elif Vec3.angle(tangentVector2, middleToStartVector2)>90 and Vec3.angle(tangentVector1, target_direction-C2.location)>90:
-            print("blue is valid")
-        elif Vec3.angle(tangentVector2, middleToStartVector2)<90 and Vec3.angle(tangentVector1, target_direction-C2.location)<90:
-            print("blue is valid")
+        tangent1 = Tangent()
+        tangent1.start = C1t1
+        tangent1.end = C2t2
+        tangent1.circle_center1 = C1.location
+        tangent1.circle_center2 = C2.location
 
 
-        
+    
+        tangent2 = Tangent()
+        tangent2.start = C1t2
+        tangent2.end = C2t1
+        tangent2.circle_center1 = C1.location
+        tangent2.circle_center2 = C2.location
 
-        return[[C1t1,C2t2], [C2t1, C1t2]]
+        return[tangent1, tangent2]
 
 
 
@@ -745,4 +760,24 @@ class Circle:
         self.points = []
         self.rotation = 0
 
+        
+class Tangent:
+    def __init__(self):
+        self.circle_center1 = Vec3(0, 0, 0)
+        self.start = Vec3(0, 0, 0)
+
+        self.circle_center2 = Vec3(0, 0, 0)
+        self.end = Vec3(0, 0, 0)
+
+
+class ArcLineArcPath:
+    def __init__(self):
+        self.length = 0
+
+
+
+        self.start = Vec3(0, 0, 0)
+        self.tangentPoint1 = Vec3(0, 0, 0)
+        self.tangentPoint2 = Vec3(0, 0, 0)
+        self.end = Vec3(0, 0, 0)
 
