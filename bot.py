@@ -13,9 +13,9 @@ import math
 
 
 from tkinter import Tk, Text, END
-root = Tk()
-text = Text(root)
-text.pack()
+#root = Tk()
+#text = Text(root)
+#text.pack()
 
 
 def debugLog(content):
@@ -23,14 +23,14 @@ def debugLog(content):
     text.see(END)
     text.update()
 
-debugLog("start")
+#debugLog("start")
 
 import sys
-debugLog( "python: " + sys.version)
+#debugLog( "python: " + sys.version)
 import tensorflow as tf
-debugLog( "tensorflow: " + tf.__version__)
+#debugLog( "tensorflow: " + tf.__version__)
 
-debugLog( "keras: " + tf.keras.__version__)
+#debugLog( "keras: " + tf.keras.__version__)
 
 import time
 
@@ -569,17 +569,44 @@ class MyBot(BaseAgent):
         possibleTangents.append(self.getStraightTangents(Mc1, Mt1, car_location, target_direction, target_location)[0])
         possibleTangents.append(self.getStraightTangents(Mc2, Mt2, car_location, target_direction, target_location)[1])
 
+        
+        best_path = ArcLineArcPath()
 
         for tangent in possibleTangents:
             #self.renderer.draw_line_3d(tangent.start, tangent.end, self.renderer.white())
 
 
-            self.renderer.draw_line_3d(tangent.start, tangent.start +tangent.circle_center2, self.renderer.white())
+            #self.renderer.draw_line_3d(tangent.start, tangent.circle_center1, self.renderer.white())
+            #self.renderer.draw_line_3d(car_location, tangent.circle_center1, self.renderer.white())
 
-            c1_arc_angle = Vec3.angle(tangent.start - tangent.circle_center2,car_location - tangent.circle_center2) * 180/math.pi
-            c2_arc_angle = Vec3.angle(tangent.end -  tangent.circle_center1, target_location - tangent.circle_center1)* 180/math.pi
 
-            print(c1_arc_angle)
+            c1_arc_angle = Vec3.angle(tangent.start - tangent.circle_center1,car_location - tangent.circle_center1) * 180/math.pi
+            c1_radius = Vec3.length(tangent.start - tangent.circle_center1)
+            c2_arc_angle = Vec3.angle(tangent.end -  tangent.circle_center2, target_location - tangent.circle_center2)* 180/math.pi
+            c2_radius = Vec3.length(tangent.end - tangent.circle_center2)
+
+            c1_arc_length = c1_arc_angle/360* 2*math.pi * c1_radius
+            c2_arc_length = c2_arc_angle/360* 2*math.pi * c2_radius
+
+
+            tangent_length = Vec3.length(tangent.end - tangent.start)
+
+            arc_line_arc_length = c1_arc_length + c2_arc_length + tangent_length
+
+            if best_path.length < arc_line_arc_length:
+                best_path.length = arc_line_arc_length
+                best_path.start = car_location
+                best_path.tangent_start = tangent.start
+                best_path.tangent_end = tangent.end
+                best_path.end = target_location
+        
+        self.renderer.draw_polyline_3d([best_path.start, best_path.tangent_start, best_path.tangent_end, best_path.end], self.renderer.white())
+
+        
+
+
+
+
 
 
 
@@ -777,7 +804,7 @@ class ArcLineArcPath:
 
 
         self.start = Vec3(0, 0, 0)
-        self.tangentPoint1 = Vec3(0, 0, 0)
-        self.tangentPoint2 = Vec3(0, 0, 0)
+        self.tangent_start = Vec3(0, 0, 0)
+        self.tangent_end = Vec3(0, 0, 0)
         self.end = Vec3(0, 0, 0)
 
