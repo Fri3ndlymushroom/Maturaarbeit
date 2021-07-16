@@ -589,6 +589,13 @@ class MyBot(BaseAgent):
             c2_arc_length = c2_arc_angle/360* 2*math.pi * c2_radius
 
 
+
+
+
+
+            if(tangent.start.y - tangent.circle_center1.y*(tangent.start.x - tangent.circle_center1.x)+tangent.start.y - tangent.circle_center1.y*(tangent.start.x - tangent.circle_center1.x))
+
+
             tangent_length = Vec3.length(tangent.end - tangent.start)
 
             arc_line_arc_length = c1_arc_length + c2_arc_length + tangent_length
