@@ -564,36 +564,53 @@ class MyBot(BaseAgent):
 
 
         possibleTangents.append(self.getCrossTangents(Mc1, Mt2, car_location, target_direction, target_location)[0])
+        possibleTangents[0].circle1_clockwise = False
+        possibleTangents[0].circle2_clockwise = True
         possibleTangents.append(self.getCrossTangents(Mc2, Mt1, car_location, target_direction, target_location)[1])
-
+        possibleTangents[1].circle1_clockwise = True
+        possibleTangents[1].circle2_clockwise = False
         possibleTangents.append(self.getStraightTangents(Mc1, Mt1, car_location, target_direction, target_location)[0])
+        possibleTangents[2].circle1_clockwise = False
+        possibleTangents[2].circle2_clockwise = False
         possibleTangents.append(self.getStraightTangents(Mc2, Mt2, car_location, target_direction, target_location)[1])
+        possibleTangents[3].circle1_clockwise = True
+        possibleTangents[3].circle2_clockwise = True
+        """
+        c1_arc_angle = Vec3.angle(possibleTangents[0].start - possibleTangents[0].circle1_center,car_location - possibleTangents[0].circle1_center) * 180/math.pi
+        c1_radius = Vec3.length(possibleTangents[0].start - possibleTangents[0].circle1_center)
+        c1_arc_length = c1_arc_angle/360* 2*math.pi * c1_radius
+        print(c1_arc_angle)
+        print((car_location - possibleTangents[0].circle1_center).y*(possibleTangents[0].start.x - possibleTangents[0].circle1_center.x)+(car_location - possibleTangents[0].circle1_center).x*(possibleTangents[0].start.y - possibleTangents[0].circle1_center.y))
 
-        
+        self.renderer.draw_polyline_3d([car_location, possibleTangents[0].start, possibleTangents[0].end, target_location], self.renderer.red())
+"""
         best_path = ArcLineArcPath()
 
         for tangent in possibleTangents:
             #self.renderer.draw_line_3d(tangent.start, tangent.end, self.renderer.white())
+            #self.renderer.draw_line_3d(tangent.start, tangent.circle1_center, self.renderer.white())
+            #self.renderer.draw_line_3d(car_location, tangent.circle1_center, self.renderer.white())
 
 
-            #self.renderer.draw_line_3d(tangent.start, tangent.circle_center1, self.renderer.white())
-            #self.renderer.draw_line_3d(car_location, tangent.circle_center1, self.renderer.white())
+            c1_arc_angle = Vec3.angle(tangent.start - tangent.circle1_center,car_location - tangent.circle1_center) * 180/math.pi
+            c1_radius = Vec3.length(tangent.start - tangent.circle1_center)
+            c2_arc_angle = Vec3.angle(tangent.end -  tangent.circle2_center, target_location - tangent.circle2_center)* 180/math.pi
+            c2_radius = Vec3.length(tangent.end - tangent.circle2_center)
 
-
-            c1_arc_angle = Vec3.angle(tangent.start - tangent.circle_center1,car_location - tangent.circle_center1) * 180/math.pi
-            c1_radius = Vec3.length(tangent.start - tangent.circle_center1)
-            c2_arc_angle = Vec3.angle(tangent.end -  tangent.circle_center2, target_location - tangent.circle_center2)* 180/math.pi
-            c2_radius = Vec3.length(tangent.end - tangent.circle_center2)
+            if((car_location - possibleTangents[0].circle1_center).y*(possibleTangents[0].start.x - possibleTangents[0].circle1_center.x)+(car_location - possibleTangents[0].circle1_center).x*(possibleTangents[0].start.y - possibleTangents[0].circle1_center.y)<0):
+                if (tangent.circle1_clockwise ):
+                    c1_arc_angle = 360 - c1_arc_angle
+                if(tangent.circle2_clockwise):
+                    c2_arc_angle = 360 - c2_arc_angle                
+            else:
+                if (tangent.circle1_clockwise == False):
+                    c1_arc_angle = 360 - c1_arc_angle
+                if(tangent.circle2_clockwise == False):
+                    c2_arc_angle = 360 - c2_arc_angle  
 
             c1_arc_length = c1_arc_angle/360* 2*math.pi * c1_radius
             c2_arc_length = c2_arc_angle/360* 2*math.pi * c2_radius
 
-
-
-
-
-
-            if(tangent.start.y - tangent.circle_center1.y*(tangent.start.x - tangent.circle_center1.x)+tangent.start.y - tangent.circle_center1.y*(tangent.start.x - tangent.circle_center1.x))
 
 
             tangent_length = Vec3.length(tangent.end - tangent.start)
@@ -658,16 +675,16 @@ class MyBot(BaseAgent):
         tangent1 = Tangent()
         tangent1.start = C1t1
         tangent1.end = C2t1
-        tangent1.circle_center1 = C1.location
-        tangent1.circle_center2 = C2.location
+        tangent1.circle1_center = C1.location
+        tangent1.circle2_center = C2.location
 
 
     
         tangent2 = Tangent()
         tangent2.start = C1t2
         tangent2.end = C2t2
-        tangent2.circle_center1 = C1.location
-        tangent2.circle_center2 = C2.location
+        tangent2.circle1_center = C1.location
+        tangent2.circle2_center = C2.location
 
         return[tangent1, tangent2]
 
@@ -725,16 +742,16 @@ class MyBot(BaseAgent):
         tangent1 = Tangent()
         tangent1.start = C1t1
         tangent1.end = C2t2
-        tangent1.circle_center1 = C1.location
-        tangent1.circle_center2 = C2.location
+        tangent1.circle1_center = C1.location
+        tangent1.circle2_center = C2.location
 
 
     
         tangent2 = Tangent()
         tangent2.start = C1t2
         tangent2.end = C2t1
-        tangent2.circle_center1 = C1.location
-        tangent2.circle_center2 = C2.location
+        tangent2.circle1_center = C1.location
+        tangent2.circle2_center = C2.location
 
         return[tangent1, tangent2]
 
@@ -797,10 +814,12 @@ class Circle:
         
 class Tangent:
     def __init__(self):
-        self.circle_center1 = Vec3(0, 0, 0)
+        self.circle1_center = Vec3(0, 0, 0)
+        self.circle1_clockwise = False
         self.start = Vec3(0, 0, 0)
 
-        self.circle_center2 = Vec3(0, 0, 0)
+        self.circle2_center = Vec3(0, 0, 0)
+        self.circle1_clockwise = False
         self.end = Vec3(0, 0, 0)
 
 
