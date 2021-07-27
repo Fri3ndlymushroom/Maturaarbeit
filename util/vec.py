@@ -124,6 +124,6 @@ class Vec3:
     
     def angle(vec1, vec2):
         frac = (Vec3.dot(vec1, vec2)/(Vec3.length(vec1)*Vec3.length(vec2)))
-        if frac > 1: frac = 1
+
         return math.acos(frac)
         
