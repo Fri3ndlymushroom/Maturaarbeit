@@ -408,11 +408,11 @@ class MyBot(BaseAgent):
             #action = learningAgent.getAction(field_info, car_location, packet, car_rotation)
         elif target == "shoot_towards_goal":
             target_location_info = self.shootBallTowardsTarget(packet, Vec3(800, 5213, 321.3875), Vec3(-800, 5213, 321.3875))
-            self.computePossibleArcLineArcDrivePaths(packet, target_location_info[0], target_location_info[1])
+            path = self.computePossibleArcLineArcDrivePaths(packet, target_location_info[0], target_location_info[1])
+            controls.steer = self.getArcLineArcControllerState(path, my_car)
+            controls.throttle = 1
 
-            #controls.steer = steer_toward_target(my_car, target)
-            controls.steer =1
-            controls.throttle = 0.1
+
 
         self.renderer.end_rendering()
         return controls
@@ -500,10 +500,23 @@ class MyBot(BaseAgent):
 
         # Return the controls associated with the beginning of the sequence so we can start right away.
         return self.active_sequence.tick(packet)
+
+    def getArcLineArcControllerState(self, path, car):
+        steer = 0
+        if(path.c1_length < 100 and path.tangent_length < 100):
+            steer = steer_toward_target(car, path.end)
+        elif(path.c1_length < 100 ):
+            steer = steer_toward_target(car, path.tangent_end)
+        else:
+            steer = steer_toward_target(car, path.tangent_start)
+
+        return(steer)
+
+
     
     def computePossibleArcLineArcDrivePaths(self, packet, target_location, target_direction):
         #my_car = packet.game_cars[self.index]
-        my_car = packet.game_cars[1]
+        my_car = packet.game_cars[self.index]
         car_location = Vec3(my_car.physics.location)
         car_rotation = my_car.physics.rotation
         car_velocity = Vec3(my_car.physics.velocity)
@@ -624,18 +637,28 @@ class MyBot(BaseAgent):
 
             arc_line_arc_length = c1_arc_length + c2_arc_length + tangent_length
 
-            if tangent.name == "rl":
-                print(c1_arc_angle, c2_arc_angle, arc_line_arc_length)
-                #self.renderer.draw_polyline_3d([car_location, tangent.start, tangent.end, target_location], self.renderer.white())
 
             if best_path.length > arc_line_arc_length:
                 best_path.length = arc_line_arc_length
+
                 best_path.start = car_location
                 best_path.tangent_start = tangent.start
                 best_path.tangent_end = tangent.end
                 best_path.end = target_location
+
+                best_path.c1_radius = c1_radius
+                best_path.c2_radius = c2_radius
+                best_path.c1_center = tangent.circle1_center
+                best_path.c2_center = tangent.circle2_center
+                best_path.c1_angle = c1_arc_angle
+                best_path.c2_angle = c2_arc_angle
+                best_path.c1_length = c1_arc_length
+                best_path.c2_length = c2_arc_length
         
+
+        #self.renderArcLineArcPath(best_path)
         self.renderer.draw_polyline_3d([best_path.start, best_path.tangent_start, best_path.tangent_end, best_path.end], self.renderer.red())
+        return(best_path)
 
         
 
@@ -813,6 +836,18 @@ class MyBot(BaseAgent):
             circle_positions.append(location)
         return(circle_positions)
 
+    def renderArcLineArcPath(self, path):
+        every = 10
+        circle_positions = []
+        for i in range(every + 1):
+
+            angle = 2 * math.pi / every * (i+1) / 360 * path.c1_angle
+            location = Vec3(path.c1_radius * math.sin(angle), path.c1_radius * -math.cos(angle), 0) + path.c1_center
+            location.z = 4
+            circle_positions.append(location)
+        self.renderer.draw_polyline_3d(circle_positions, self.renderer.red())
+        
+
 
 
 class Circle:
@@ -838,7 +873,13 @@ class Tangent:
 class ArcLineArcPath:
     def __init__(self):
         self.length = 10000000
-
+        self.tangent_length = 0
+        self.c1_length = 0
+        self.c2_length = 0
+        self.c1_radius = 0
+        self.c2_radius = 0
+        self.c1_angle = 0
+        self.c2_angle = 0
 
 
         self.start = Vec3(0, 0, 0)
