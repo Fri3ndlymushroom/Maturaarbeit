@@ -370,6 +370,8 @@ class MyBot(BaseAgent):
         self.step = 1
         self.epsiolon = 1
 
+        self.path_length = 0
+
     def initialize_agent(self):
         # Set up information about the boost pads now that the game is active and the info is available
         self.boost_pad_tracker.initialize_boosts(self.get_field_info())
@@ -409,6 +411,7 @@ class MyBot(BaseAgent):
         elif target == "shoot_towards_goal":
             target_location_info = self.shootBallTowardsTarget(packet, Vec3(800, 5213, 321.3875), Vec3(-800, 5213, 321.3875))
             path = self.computePossibleArcLineArcDrivePaths(packet, target_location_info[0], target_location_info[1])
+            self.path_length = path.length
             controls.steer = self.getArcLineArcControllerState(path, my_car)
             controls.throttle = 1
 
@@ -428,6 +431,26 @@ class MyBot(BaseAgent):
         ball_location = Vec3(packet.game_ball.physics.location)
         car_location = Vec3(packet.game_cars[self.index].physics.location)
 
+
+        #distance = Vec3.length(ball_location - car_location)
+        distance = self.path_length
+        car_velocity = Vec3.dot(packet.game_cars[self.index].physics.velocity, Vec3.normalized(Orientation(packet.game_cars[self.index].physics.rotation).forward))
+        time = 0
+        target_reached = False
+        while not target_reached:
+            distance -= car_velocity/10
+            car_velocity += self.getAcceleration(car_velocity)/10
+            time += 1
+            if(distance < 0): target_reached = True
+
+
+        ball_location = self.predictBallLocation(time)
+
+
+        self.renderer.draw_line_3d(car_location, ball_location, self.renderer.blue())
+        # max speed = 1410
+
+
         
 
         car_to_ball = ball_location - car_location
@@ -436,8 +459,8 @@ class MyBot(BaseAgent):
         ball_to_left_target_direction = Vec3.normalized(left_most_target - ball_location)
         ball_to_right_target_direction = Vec3.normalized(right_most_target - ball_location)
         direction_of_approach = Vec3.clamp2D(direction=car_to_ball_direction, start=ball_to_left_target_direction, end=ball_to_right_target_direction)
-
-        offset_ball_location = ball_location - direction_of_approach * 92.75
+        #offset would be 92.75 but is better with a greater value for arc line arc
+        offset_ball_location = ball_location - direction_of_approach * 200
 
         """
         side_of_approach_direction = Vec3.dot(Vec3.cross(direction_of_approach, Vec3(0, 0, 1)), ball_location - car_location)
@@ -455,10 +478,10 @@ class MyBot(BaseAgent):
         final_target = offset_ball_location + (car_to_ball_perpendicular * adjustment)
         """
 
-        self.renderer.draw_line_3d(ball_location, ball_location+ball_to_left_target_direction*1000, self.renderer.white())
-        self.renderer.draw_line_3d(ball_location, ball_location+ball_to_right_target_direction*1000, self.renderer.white())
-        self.renderer.draw_line_3d(ball_location, ball_location+ball_to_left_target_direction*-1000, self.renderer.white())
-        self.renderer.draw_line_3d(ball_location, ball_location+ball_to_right_target_direction*-1000, self.renderer.white())
+        #self.renderer.draw_line_3d(ball_location, ball_location+ball_to_left_target_direction*1000, self.renderer.white())
+        #self.renderer.draw_line_3d(ball_location, ball_location+ball_to_right_target_direction*1000, self.renderer.white())
+        #self.renderer.draw_line_3d(ball_location, ball_location+ball_to_left_target_direction*-1000, self.renderer.white())
+        #self.renderer.draw_line_3d(ball_location, ball_location+ball_to_right_target_direction*-1000, self.renderer.white())
 
         
 
@@ -483,6 +506,15 @@ class MyBot(BaseAgent):
 
                 if loc1 is not None and loc2 is not None:
                     self.renderer.draw_line_3d(loc1, loc2, self.renderer.yellow())
+    
+    def predictBallLocation(self, time):
+        ball_prediction = self.get_ball_prediction_struct()
+        if(time > 59): time = 59
+        ball_prediction_time = ball_prediction.slices[time].physics.location
+
+        return Vec3(ball_prediction_time.x, ball_prediction_time.y, ball_prediction_time.z)
+
+
     
 
     def begin_front_flip(self, packet):
@@ -509,7 +541,6 @@ class MyBot(BaseAgent):
             steer = steer_toward_target(car, path.tangent_end)
         else:
             steer = steer_toward_target(car, path.tangent_start)
-
         return(steer)
 
 
@@ -560,7 +591,7 @@ class MyBot(BaseAgent):
         Mt1.rotation = -1
         # render
         Mt1.points = self.getPointsInSircle(11, Mt1.radius, Mt1.location)
-        self.renderer.draw_polyline_3d(Mt1.points, self.renderer.white())
+        #self.renderer.draw_polyline_3d(Mt1.points, self.renderer.white())
 
         # target circle 2
         Mt2 = Circle()
@@ -569,7 +600,7 @@ class MyBot(BaseAgent):
         Mt2.rotation = 1
         # render
         Mt2.points = self.getPointsInSircle(11, Mt2.radius, Mt2.location)
-        self.renderer.draw_polyline_3d(Mt2.points, self.renderer.white())
+        #self.renderer.draw_polyline_3d(Mt2.points, self.renderer.white())
 
         possibleTangents = []
 
@@ -577,23 +608,15 @@ class MyBot(BaseAgent):
 
         # left to right
         possibleTangents.append(self.getCrossTangents(Mc1, Mt2, car_location, target_direction, target_location)[0])
-        possibleTangents[0].circle1_clockwise = False
-        possibleTangents[0].circle2_clockwise = True
         possibleTangents[0].name = "lr"
         # right to left
         possibleTangents.append(self.getCrossTangents(Mc2, Mt1, car_location, target_direction, target_location)[1])
-        possibleTangents[1].circle1_clockwise = True
-        possibleTangents[1].circle2_clockwise = False
         possibleTangents[1].name = "rl"
         # left to left
         possibleTangents.append(self.getStraightTangents(Mc1, Mt1, car_location, target_direction, target_location)[0])
-        possibleTangents[2].circle1_clockwise = False
-        possibleTangents[2].circle2_clockwise = False
         possibleTangents[2].name = "ll"
         # right to right
         possibleTangents.append(self.getStraightTangents(Mc2, Mt2, car_location, target_direction, target_location)[1])
-        possibleTangents[3].circle1_clockwise = True
-        possibleTangents[3].circle2_clockwise = True
         possibleTangents[3].name = "rr"
 
         
@@ -604,7 +627,9 @@ class MyBot(BaseAgent):
             #self.renderer.draw_line_3d(tangent.start, tangent.end, self.renderer.white())
             #self.renderer.draw_line_3d(tangent.start, tangent.circle1_center, self.renderer.white())
             #self.renderer.draw_line_3d(car_location, tangent.circle1_center, self.renderer.white())
-            
+            #print(tangent.possible)
+            if(tangent.possible):
+                self.renderer.draw_line_3d(tangent.start, tangent.end, self.renderer.white())
 
             c1_arc_angle = Vec3.angle(Vec3.flat(tangent.start - tangent.circle1_center),Vec3.flat(car_location - tangent.circle1_center)) * 180/math.pi
             c1_radius = Vec3.length(Vec3.flat(tangent.start - tangent.circle1_center))
@@ -638,7 +663,7 @@ class MyBot(BaseAgent):
             arc_line_arc_length = c1_arc_length + c2_arc_length + tangent_length
 
 
-            if best_path.length > arc_line_arc_length:
+            if best_path.length > arc_line_arc_length and tangent.possible:
                 best_path.length = arc_line_arc_length
 
                 best_path.start = car_location
@@ -712,14 +737,16 @@ class MyBot(BaseAgent):
         tangent1.circle1_center = C1.location
         tangent1.circle2_center = C2.location
 
+        tangent1.possible = C4intersections[4]
+        
 
-    
         tangent2 = Tangent()
         tangent2.start = C1t2
         tangent2.end = C2t2
         tangent2.circle1_center = C1.location
         tangent2.circle2_center = C2.location
 
+        tangent2.possible = C5intersections[4]
         return[tangent1, tangent2]
 
 
@@ -778,7 +805,7 @@ class MyBot(BaseAgent):
         tangent1.end = C2t2
         tangent1.circle1_center = C1.location
         tangent1.circle2_center = C2.location
-
+        tangent1.possible = True
 
     
         tangent2 = Tangent()
@@ -786,6 +813,7 @@ class MyBot(BaseAgent):
         tangent2.end = C2t1
         tangent2.circle1_center = C1.location
         tangent2.circle2_center = C2.location
+        tangent2.possible = True
 
         return[tangent1, tangent2]
 
@@ -801,6 +829,8 @@ class MyBot(BaseAgent):
         
 
         a=(r0**2-r1**2+d**2)/(2*d)
+        if(r0**2-a**2<0): 
+            return (0, 0, 0, 0, False)
         h=math.sqrt(r0**2-a**2)
         x2=x0+a*(x1-x0)/d   
         y2=y0+a*(y1-y0)/d   
@@ -809,22 +839,63 @@ class MyBot(BaseAgent):
 
         x4=x2-h*(y1-y0)/d
         y4=y2+h*(x1-x0)/d
-            
-        return (x3, y3, x4, y4)
+
+        return (x3, y3, x4, y4, True)
         
     
     def getSteeringRadius(self, car_velocity, car_rotation):
         velocity = Vec3.dot(car_velocity, Vec3.normalized(Orientation(car_rotation).forward))
+        """
         curvature = 0.0069
         if velocity > 2300: curvature = 0.0008
         elif velocity > 1750: curvature = 0.0011
         elif velocity > 1500: curvature = 0.001375
         elif velocity > 1000: curvature = 0.00235
         elif velocity > 500: curvature = 0.00598
+        """
+        val1 = 0
+        val2 = 0
+        val3 = 0
+        val4 = 0
 
+        if(velocity >= 1750 and velocity <= 2300):
+            val1 = 1750
+            val2 = 2300 
+            val3 = 0.0011
+            val4 = 0.00088 
+        elif(velocity >= 1500 and velocity <= 1750):
+            val1 = 1500
+            val2 = 1750 
+            val3 = 0.001375
+            val4 = 0.0011
+        elif(velocity >= 1000 and velocity <= 1500):
+            val1 = 1000
+            val2 = 1500
+            val3 = 0.00235
+            val4 = 0.001375
+        elif(velocity >= 500 and velocity <= 1000):
+            val1 = 500
+            val2 = 1000
+            val3 = 0.00398
+            val4 = 0.00235
+        elif(velocity >= 0 and velocity <= 500):
+            val1 = 0
+            val2 = 500
+            val3 = 0.0069
+            val4 = 0.00398
+
+        curvature =(val3 - val4)*(1 / (val2 - val1) * (velocity - val1))+val3
+        
         radius = 1/curvature
-
+        print(curvature, velocity)
         return(radius)
+
+    def getAcceleration(self, car_velocity):
+        acceleration = 0
+        if(car_velocity < 1400): acceleration = 1600
+        elif(car_velocity < 1410): acceleration = 1600
+        return acceleration
+
 
     def getPointsInSircle(self, every, radius, center):
         circle_positions = []
@@ -862,12 +933,12 @@ class Tangent:
     def __init__(self):
         self.name = ""
         self.circle1_center = Vec3(0, 0, 0)
-        self.circle1_clockwise = False
         self.start = Vec3(0, 0, 0)
 
         self.circle2_center = Vec3(0, 0, 0)
-        self.circle1_clockwise = False
         self.end = Vec3(0, 0, 0)
+
+        self.possible = False
 
 
 class ArcLineArcPath:
