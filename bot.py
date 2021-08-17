@@ -380,7 +380,7 @@ class MyBot(BaseAgent):
         self.renderer.begin_rendering()
         
         #============[get info]============    
-
+        self.index = 1
         # field info
         field_info = self.get_field_info()
         my_car = packet.game_cars[self.index]
@@ -388,6 +388,7 @@ class MyBot(BaseAgent):
         car_rotation = my_car.physics.rotation
         car_velocity = Vec3(my_car.physics.velocity)
         ball_location = Vec3(packet.game_ball.physics.location)
+        ball_rotation = packet.game_ball.physics.rotation
 
         self.predictBallPath()
         
@@ -411,6 +412,7 @@ class MyBot(BaseAgent):
         elif target == "shoot_towards_goal":
             target_location_info = self.shootBallTowardsTarget(packet, Vec3(800, 5213, 321.3875), Vec3(-800, 5213, 321.3875))
             path = self.computePossibleArcLineArcDrivePaths(packet, target_location_info[0], target_location_info[1])
+            self.renderArcLineArcPath(path, car_rotation, ball_rotation)
             self.path_length = path.length
             controls.steer = self.getArcLineArcControllerState(path, my_car)
             controls.throttle = 1
@@ -421,9 +423,8 @@ class MyBot(BaseAgent):
         return controls
 
     def renderText(self, text):
-        self.renderer.begin_rendering()
+        text = str(text)
         self.renderer.draw_string_2d(4, 4, 2, 2,text, self.renderer.white())
-        self.renderer.end_rendering()
 
 
     
@@ -435,19 +436,23 @@ class MyBot(BaseAgent):
         #distance = Vec3.length(ball_location - car_location)
         distance = self.path_length
         car_velocity = Vec3.dot(packet.game_cars[self.index].physics.velocity, Vec3.normalized(Orientation(packet.game_cars[self.index].physics.rotation).forward))
-        time = 0
         target_reached = False
+        time = 0
+        #print(round(distance))
         while not target_reached:
-            distance -= car_velocity/10
-            car_velocity += self.getAcceleration(car_velocity)/10
+
+            distance -= car_velocity / 10
+            car_velocity += self.getAcceleration(car_velocity) / 100
+
+            if(car_velocity > 1410): car_velocity = 1410
+
             time += 1
-            if(distance < 0): target_reached = True
-
-
+            if(distance < 0):target_reached = True
+        #print(time)
         ball_location = self.predictBallLocation(time)
 
 
-        self.renderer.draw_line_3d(car_location, ball_location, self.renderer.blue())
+        self.renderer.draw_line_3d(Vec3(ball_location.x, ball_location.x, 10000), ball_location, self.renderer.blue())
         # max speed = 1410
 
 
@@ -460,7 +465,8 @@ class MyBot(BaseAgent):
         ball_to_right_target_direction = Vec3.normalized(right_most_target - ball_location)
         direction_of_approach = Vec3.clamp2D(direction=car_to_ball_direction, start=ball_to_left_target_direction, end=ball_to_right_target_direction)
         #offset would be 92.75 but is better with a greater value for arc line arc
-        offset_ball_location = ball_location - direction_of_approach * 200
+        print()
+        offset_ball_location = ball_location - direction_of_approach * 100
 
         """
         side_of_approach_direction = Vec3.dot(Vec3.cross(direction_of_approach, Vec3(0, 0, 1)), ball_location - car_location)
@@ -510,6 +516,7 @@ class MyBot(BaseAgent):
     def predictBallLocation(self, time):
         ball_prediction = self.get_ball_prediction_struct()
         if(time > 59): time = 59
+        elif(time < 1): time = 1
         ball_prediction_time = ball_prediction.slices[time].physics.location
 
         return Vec3(ball_prediction_time.x, ball_prediction_time.y, ball_prediction_time.z)
@@ -568,7 +575,7 @@ class MyBot(BaseAgent):
         Mc1.rotation = -1
         # render
         Mc1.points = self.getPointsInSircle(11, Mc1.radius, Mc1.location)
-        self.renderer.draw_polyline_3d(Mc1.points, self.renderer.white())
+        #self.renderer.draw_polyline_3d(Mc1.points, self.renderer.white())
 
         # car circle 2
         Mc2 = Circle()
@@ -577,7 +584,7 @@ class MyBot(BaseAgent):
         Mc2.rotation = 1
         # render
         Mc2.points = self.getPointsInSircle(11, Mc2.radius, Mc2.location)
-        self.renderer.draw_polyline_3d(Mc2.points, self.renderer.white())
+        #self.renderer.draw_polyline_3d(Mc2.points, self.renderer.white())
 
 
         # target circles
@@ -627,10 +634,8 @@ class MyBot(BaseAgent):
             #self.renderer.draw_line_3d(tangent.start, tangent.end, self.renderer.white())
             #self.renderer.draw_line_3d(tangent.start, tangent.circle1_center, self.renderer.white())
             #self.renderer.draw_line_3d(car_location, tangent.circle1_center, self.renderer.white())
-            #print(tangent.possible)
-            if(tangent.possible):
-                self.renderer.draw_line_3d(tangent.start, tangent.end, self.renderer.white())
-
+            #if(tangent.possible):
+                #self.renderer.draw_line_3d(tangent.start, tangent.end, self.renderer.white())
             c1_arc_angle = Vec3.angle(Vec3.flat(tangent.start - tangent.circle1_center),Vec3.flat(car_location - tangent.circle1_center)) * 180/math.pi
             c1_radius = Vec3.length(Vec3.flat(tangent.start - tangent.circle1_center))
             c2_arc_angle = Vec3.angle(Vec3.flat(tangent.end -  tangent.circle2_center), Vec3.flat(target_location - tangent.circle2_center))* 180/math.pi
@@ -669,8 +674,10 @@ class MyBot(BaseAgent):
                 best_path.start = car_location
                 best_path.tangent_start = tangent.start
                 best_path.tangent_end = tangent.end
+                best_path.tangent_length = Vec3.length(tangent.end - tangent.start)
                 best_path.end = target_location
 
+                best_path.name = tangent.name
                 best_path.c1_radius = c1_radius
                 best_path.c2_radius = c2_radius
                 best_path.c1_center = tangent.circle1_center
@@ -680,8 +687,7 @@ class MyBot(BaseAgent):
                 best_path.c1_length = c1_arc_length
                 best_path.c2_length = c2_arc_length
         
-
-        #self.renderArcLineArcPath(best_path)
+        print("c1: ", round(best_path.c1_length),"u, ", round(best_path.c1_angle),"deg, ", "t: ", round(best_path.tangent_length),"u, ", "c2: ", round(best_path.c2_length),"u, ", round(best_path.c2_angle),"deg, ", "i: ", best_path.name)
         self.renderer.draw_polyline_3d([best_path.start, best_path.tangent_start, best_path.tangent_end, best_path.end], self.renderer.red())
         return(best_path)
 
@@ -858,6 +864,7 @@ class MyBot(BaseAgent):
         val3 = 0
         val4 = 0
 
+        if (velocity<=0): return 1/0.0069
         if(velocity >= 1750 and velocity <= 2300):
             val1 = 1750
             val2 = 2300 
@@ -884,39 +891,147 @@ class MyBot(BaseAgent):
             val3 = 0.0069
             val4 = 0.00398
 
-        curvature =(val3 - val4)*(1 / (val2 - val1) * (velocity - val1))+val3
+        percentage = 1 / (val2 - val1) * (velocity - val1)
+        curvature = val3 - (val3 - val4)* percentage
+
         
         radius = 1/curvature
-        print(curvature, velocity)
+        
+        
         return(radius)
 
     def getAcceleration(self, car_velocity):
+
         acceleration = 0
-        if(car_velocity < 1400): acceleration = 1600
-        elif(car_velocity < 1410): acceleration = 1600
+        vals = []
+              
+        if(car_velocity < 1400): 
+            vals = [[0, 1600],
+                    [1400, 160]]
+        elif(car_velocity < 1410): 
+            vals = [[1400, 160],
+                    [1410, 0]]
+        elif(car_velocity < 2300): 
+            vals = [[1410, 0],
+                    [2300, 0]]
+
+        percentage = 1 / (vals[1][0] - vals[0][0]) * (car_velocity - vals[0][0])
+
+        acceleration = vals[0][1] - (vals[0][1] - vals[1][1]) * percentage
+
         return acceleration
 
 
     def getPointsInSircle(self, every, radius, center):
         circle_positions = []
         for i in range(every + 1):
-
+            
             angle = 2 * math.pi / every * (i+1)
             location = Vec3(radius * math.sin(angle), radius * -math.cos(angle), 0) + center
             location.z = 4
             circle_positions.append(location)
         return(circle_positions)
 
-    def renderArcLineArcPath(self, path):
+    def renderArcLineArcPath(self, path, car_rotation, target_rotation):
+        """
         every = 10
-        circle_positions = []
-        for i in range(every + 1):
+        circle_positions1 = []
+        circle_positions2 = []
 
-            angle = 2 * math.pi / every * (i+1) / 360 * path.c1_angle
+        spots = [path.name[0], path.name[1]]
+
+        # circle 1
+        start_rotation = Vec3.angle((path.tangent_start - path.c1_center), Vec3(0, -1, 0))
+        end_rotation = Vec3.angle((path.start - path.c1_center), Vec3(0, -1, 0))
+        rotation_snippet = path.c1_angle / every * math.pi / 180
+
+        if(path.start.y > 0): start_rotation = -start_rotation
+
+        for i in range(every + 1):
+            angle = 0
+            if(spots[0] == "r"):
+                angle = start_rotation - rotation_snippet * i 
+            if(spots[0] == "l"):
+                angle = -start_rotation + rotation_snippet * i 
             location = Vec3(path.c1_radius * math.sin(angle), path.c1_radius * -math.cos(angle), 0) + path.c1_center
             location.z = 4
-            circle_positions.append(location)
-        self.renderer.draw_polyline_3d(circle_positions, self.renderer.red())
+            circle_positions1.append(location)
+
+
+        self.renderer.draw_polyline_3d(circle_positions1, self.renderer.red())
+
+
+
+        # circle 2
+        start_rotation = Vec3.angle((path.tangent_end - path.c2_center), Vec3(0, -1, 0))
+        end_rotation = Vec3.angle((path.end - path.c2_center), Vec3(0, -1, 0))
+        rotation_snippet = path.c2_angle / every * math.pi / 180
+
+        if(path.end.y > 0): start_rotation = -start_rotation
+        print(spots[1])
+        for i in range(every + 1):
+            angle = 0
+            if(spots[1] == "l"):
+                angle = start_rotation - rotation_snippet * i 
+            if(spots[1] == "r"):
+                angle = -start_rotation + rotation_snippet * i 
+            location = Vec3(path.c2_radius * math.sin(angle), path.c2_radius * -math.cos(angle), 0) + path.c2_center
+            location.z = 4
+            circle_positions2.append(location)
+
+
+
+        self.renderer.draw_polyline_3d(circle_positions2, self.renderer.red())
+
+
+
+        """
+
+        p = self.getPointsInSircle(20, path.c1_radius, path.c1_center)
+        self.renderer.draw_polyline_3d( p , self.renderer.red())
+        p = self.getPointsInSircle(20, path.c2_radius, path.c2_center)
+        self.renderer.draw_polyline_3d( p , self.renderer.red())
+        """
+        # circle 1
+        
+        start_rotation = Vec3.angle((path.tangent_start - path.c1_center), Vec3(0, -1, 0))
+        end_rotation = Vec3.angle((path.start - path.c1_center), Vec3(0, -1, 0))
+        rotation_snippet = ((start_rotation**2)**0.5 + (end_rotation**2)**0.5) / every
+        indicator = start_rotation - end_rotation 
+
+        print(indicator)
+        for i in range(every + 1):
+            angle = 0
+            if(path.name == "rl" or path.name == "rr"):
+                angle = -start_rotation - rotation_snippet * i 
+            if(path.name == "ll" or path.name == "lr" ):
+                angle = start_rotation + rotation_snippet * i 
+            location = Vec3(path.c1_radius * math.sin(angle), path.c1_radius * -math.cos(angle), 0) + path.c1_center
+            location.z = 4
+            circle_positions1.append(location)
+
+
+        self.renderer.draw_polyline_3d(circle_positions1, self.renderer.red())
+        
+        # circle 2
+
+        start_rotation = Vec3.angle((path.tangent_end - path.c2_center), Vec3(0, -1, 0))
+        rotation_snippet = path.c2_angle * math.pi*2/360 / every * -1
+
+    
+        for i in range(every + 1):
+            angle = 0
+            if(path.name == "rl" or path.name == "rr"):
+                angle = -start_rotation - rotation_snippet * i 
+            if(path.name == "ll" or path.name == "lr" ):
+                angle = start_rotation + rotation_snippet * i 
+            location = Vec3(path.c2_radius * math.sin(angle), path.c2_radius * -math.cos(angle), 0) + path.c2_center
+            location.z = 4
+            circle_positions2.append(location)
+
+
+        self.renderer.draw_polyline_3d(circle_positions2, self.renderer.red())
+        """
         
 
 
@@ -951,6 +1066,7 @@ class ArcLineArcPath:
         self.c2_radius = 0
         self.c1_angle = 0
         self.c2_angle = 0
+        self.name = ""
 
 
         self.start = Vec3(0, 0, 0)

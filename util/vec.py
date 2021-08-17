@@ -117,9 +117,11 @@ class Vec3:
         is_left = Vec3.dot(direction, Vec3.cross(start, Vec3(0, 0, -1))) > 0
         if is_left and is_right:
             return direction
-        if is_right:
+        elif is_right:
             return start
-        if is_left:
+        elif is_left:
+            return end
+        else:
             return end
     
     def angle(vec1, vec2):
