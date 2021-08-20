@@ -83,7 +83,7 @@ class ModelAgent():
         model = tf.keras.models.Sequential()
 
         # inputs sind: xDelta, yDelta, zDelta, car speed
-        model.add(tf.keras.layers.Dense(3, input_shape=(4,), activation="relu"))
+        model.add(tf.keras.layers.Dense(9, input_shape=(9,), activation="relu"))
         model.add(tf.keras.layers.Dense(128, activation="relu"))
         model.add(tf.keras.layers.Dense(128, activation="relu"))
         model.add(tf.keras.layers.Dense(128, activation="relu"))
