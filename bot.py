@@ -17,12 +17,6 @@ from tkinter import Tk, Text, END
 #text = Text(root)
 #text.pack()
 
-
-def debugLog(content):
-    text.insert(END, str(content)+"\n")
-    text.see(END)
-    text.update()
-
 #debugLog("start")
 
 import sys
@@ -110,7 +104,7 @@ class ModelAgent():
     
     # q values berechnen
     def get_qs(self, state):
-        qs= self.model.predict(np.array(state).reshape(-1, *np.array(state).shape)/6000)[0]
+        qs= self.model.predict(np.array(state).reshape(-1, *np.array(state).shape)/1)[0]
         return qs
     
     # jeder step soll das netzwerk trainiert werdenfg
@@ -128,11 +122,11 @@ class ModelAgent():
 
         
         # get q valuess
-        current_states = np.array([transition[0] for transition in minibatch])/6000
+        current_states = np.array([transition[0] for transition in minibatch])/1
         current_qs_list = self.model.predict(current_states)
 
         # zukünftige q values
-        new_current_states = np.array([transition[3] for transition in minibatch])/6000
+        new_current_states = np.array([transition[3] for transition in minibatch])/1
         future_qs_list = self.target_model.predict(new_current_states)
 
 
@@ -157,7 +151,7 @@ class ModelAgent():
             X.append(current_state)
             y.append(current_qs)
 
-        self.model.fit(np.array(X)/6000, np.array(y), batch_size=self.MINIBATCH_SIZE, verbose=0, shuffle=False, callbacks=[] if terminal_state else None)
+        self.model.fit(np.array(X)/1, np.array(y), batch_size=self.MINIBATCH_SIZE, verbose=0, shuffle=False, callbacks=[] if terminal_state else None)
         if terminal_state:
             self.target_update_counter += 1
 
@@ -187,21 +181,9 @@ class QLearningAgent:
 
         # action space size
         self.ACTION_SPACE_SIZE = 4
-        # possible actions
-        # throttle forwards
-        # throttle backwards
-        # steer right
-        # steer left
-        # pich down
-        # pitch up
-        # yaw left
-        # yaw right
-        # roll left
-        # roll right
-        # jump
-        # boost
-        # handbrake
-        # no action
+        # attack
+        # defend
+        # get boost
 
         #penaltys
         self.MOVE_PENALTY = 1
@@ -209,49 +191,41 @@ class QLearningAgent:
 
 
     
-    def getAction(self, field_info, car_location, game_packet, car_rotation):
+    def getAction(self, packet):
 
-        self.field_info = field_info
-        self.car_location = car_location
-        self.game_packet = game_packet
-        self.car_rotation = car_rotation
+        packet = packet
+        self_car = packet.game_cars[0]
+        enemy_car = packet.game_cars[1]
+        self_car_location = Vec3(self_car.physics.location)
+        enemy_car_location = Vec3(enemy_car.physics.location)
+        ball_location = Vec3(packet.game_ball.physics.location)
 
-
+        # Mit dem Score im Spiel wird ermittelt wie gut der bot ist.
+        #  Wenn also zb. 3/7 steht ist die scoreRatio -4 und somit kann der bot gut trainiert werdne
+        scoreRatio = packet.teams[0].score - packet.teams[1].score
 
         # wenn self.step == STEPS_PER_EPISODE ist sollen variabeln zurückgesetz werden
         self.manageEpisodes()
 
-
-        
-
-        # wichtige parameter berechnen
-        target_vector = self.car_location - self.target_location
-        self.state_now = [target_vector.x, target_vector.y, target_vector.z, car_rotation.yaw]
-
-        if self.step == 1:
-            self.normalizer = car_location.dist(self.target_location)
+        self.state_now = [
+            self_car_location.x, self_car_location.y, self_car_location.z,
+            enemy_car_location.x, enemy_car_location.y, enemy_car_location.z,
+            ball_location.x, ball_location.y, ball_location.z
+        ]
         
         # den letzten schritt beurteilen
         if self.should_train:
-            # erstmal soll der Bot anhand der distanz zum ziel beurteilt werden
-            distance = car_location.dist(self.target_location)
-
 
             self.step_reward -= self.MOVE_PENALTY
-            reward_normalized = distance / self.normalizer
 
-            self.step_reward -= reward_normalized * self.DISTANCE_PENALTY_MULTIPLICATOR
+            self.step_reward += scoreRatio * 1000
             self.episode_reward += self.step_reward
 
-            if distance < 100:
-                debugLog("done")
-                self.done = True
-                self.done_accuracy.append(1)
-            elif self.step == self.STEPS_PER_EPISODE-1:
-                self.done = True
-                self.done_accuracy.append(0)
-                
 
+            if self.step == self.STEPS_PER_EPISODE-1:
+                self.done = True
+
+        
             agent.update_replay_memory((self.old_state, self.action, self.step_reward, self.state_now, self.done))
             agent.train(self.done, self.step)
         
@@ -277,8 +251,7 @@ class QLearningAgent:
 
         if (self.total_step % 200 == 0): 
             # step
-            debugLog("step")
-            debugLog(self.total_step)
+
 
             # accuracy
             sum = 0
@@ -287,13 +260,8 @@ class QLearningAgent:
                 sum += done
                 i += 1
             accuracy = sum / i
-            debugLog("accuracy")
-            debugLog(accuracy)
-            if agent.target_update_counter > agent.UPDATE_TARGET_EVERY:
-                debugLog("update Target")
 
 
-            debugLog("-------------")
 
         return self.action
 
@@ -306,7 +274,6 @@ class QLearningAgent:
         if self.step == 1:
             self.episode_reward = 0
             self.done = False
-            self.target_location = self.getRandomBoost()
 
             # verhindert, dass beim ersten schritt trainiert wird
             self.should_train = False
@@ -319,37 +286,7 @@ class QLearningAgent:
 
     
         
-    
-    def getNearestFullBoost(self):
-        nearest_boost_location = None
 
-
-        
-        i = 0
-        for boost in self.field_info.boost_pads:
-            if boost.is_full_boost and self.game_packet.game_boosts[i].is_active:
-                if not nearest_boost_location:
-                    nearest_boost_location = boost.location
-                else:
-                    if self.car_location.dist(Vec3(boost.location)) < self.car_location.dist(nearest_boost_location):
-                        nearest_boost_location = boost.location
-            i += 1
-
-        return nearest_boost_location
-    
-    def getRandomBoost(self):
-        random_boost = None
-        index = random.randint(0, 5)
-
-        
-        i = 0
-        for boost in self.field_info.boost_pads:
-            if boost.is_full_boost and self.game_packet.game_boosts[i].is_active:
-                if index == i:
-                    random_boost = boost.location
-                i += 1
-
-        return random_boost
 
 
 learningAgent = QLearningAgent()
@@ -391,30 +328,21 @@ class MyBot(BaseAgent):
 
         self.predictBallPath()
         
-
-        
-
-       
-
         #============[decision]============
-        target = "shoot_towards_goal"
+        target = 0
+        target = learningAgent.getAction(packet)
+
         
         #============[execution & controls]============
         controls = SimpleControllerState()
-        if target == "boost":
-            target_location = Vec3(self.getNearestFullBoost(packet))
 
-            controls = self.steerTowardsTarget(my_car, car_velocity, target_location)
-        elif target == "steerTowardsTarget_train":
-            action = 10
-            #action = learningAgent.getAction(field_info, car_location, packet, car_rotation)
-        elif target == "shoot_towards_goal":
+        # attack
+        if target == 0:
             target_location_info = self.shootBallTowardsTarget(packet, Vec3(800, 5213, 321.3875), Vec3(-800, 5213, 321.3875))
             path = self.computePossibleArcLineArcDrivePaths(packet, target_location_info[0], target_location_info[1])
             self.path_length = path.length
             controls.steer = self.getArcLineArcControllerState(path, my_car)
             controls.throttle = 1
-
 
 
         self.renderer.end_rendering()
@@ -887,7 +815,7 @@ class MyBot(BaseAgent):
         curvature =(val3 - val4)*(1 / (val2 - val1) * (velocity - val1))+val3
         
         radius = 1/curvature
-        print(curvature, velocity)
+
         return(radius)
 
     def getAcceleration(self, car_velocity):
