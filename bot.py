@@ -297,10 +297,14 @@ class MyBot(BaseAgent):
         self.active_sequence: Sequence = None
         self.boost_pad_tracker = BoostPadTracker()
 
-        self.step = 1
-        self.epsiolon = 1
-
         self.path_length = 0
+
+        self.first_call = True
+
+
+
+
+        self.maneuver = Maneuver()
 
     def initialize_agent(self):
         # Set up information about the boost pads now that the game is active and the info is available
@@ -308,6 +312,8 @@ class MyBot(BaseAgent):
 
     def get_output(self, packet: GameTickPacket) -> SimpleControllerState:
         self.renderer.begin_rendering()
+
+        self.packet = packet
         
         # get info
         self.index = 0
@@ -321,49 +327,45 @@ class MyBot(BaseAgent):
         ball_rotation = packet.game_ball.physics.rotation
 
         self.predictBallPath()
-        
-        # decision
-        target = 0
-        target = learningAgent.getAction(packet)
+
 
         
         # execution & controls
         controls = SimpleControllerState()
 
-        # attack
-        if target == 0:
-            target_location_info = self.shootBallTowardsTarget(packet, Vec3(800, 5213, 321.3875), Vec3(-800, 5213, 321.3875))
-            path = self.computePossibleArcLineArcDrivePaths(packet, target_location_info[0], target_location_info[1])
-            self.renderArcLineArcPath(path, car_rotation, ball_rotation)
-            self.path_length = path.length
-            controls.steer = self.getArcLineArcControllerState(path, my_car)
-            controls.throttle = 1
-            controls.boost = False
 
-        if not self.checkIfManuverFinished and not self.checkIfUnforseenAction:
-            # further execute manuver
-            target_location_info = self.shootBallTowardsTarget(packet, Vec3(800, 5213, 321.3875), Vec3(-800, 5213, 321.3875))
-            path = self.computePossibleArcLineArcDrivePaths(packet, target_location_info[0], target_location_info[1])
-            self.renderArcLineArcPath(path, car_rotation, ball_rotation)
-            self.path_length = path.length
-            controls.steer = self.getArcLineArcControllerState(path, my_car)
-            controls.throttle = 1
+        if not self.checkIfManeuverFinished() and not self.checkIfUnforseenAction() and not self.first_call:
+            # further execute maneuver
+            print(self.maneuver.path.tangent_length)
+            controls.steer = self.getArcLineArcControllerState(self.maneuver.path, my_car)
+            controls.throttle = 0.2
             controls.boost = False
         else:
-            #get new manuver
+            #get new maneuver
+            #self.maneuver.target = learningAgent.getAction(packet)
+            self.maneuver.target = 0
+            self.getTargetLocation()
+            self.maneuver.path = self.computePossibleArcLineArcDrivePaths(self.packet, self.maneuver.target_location[0], self.maneuver.target_location[1])
 
 
 
 
         self.renderer.end_rendering()
+        self.first_call = False
         return controls
 
 
 
+    def getTargetLocation(self):
+        if(self.maneuver.target == 0):
+            #attack
+            self.maneuver.target_location = self.shootBallTowardsTarget(self.packet, Vec3(800, 5213, 321.3875), Vec3(-800, 5213, 321.3875))
 
 
-
-
+    def checkIfManeuverFinished(self):
+        return False
+    def checkIfUnforseenAction(self):
+        return False
     #==============================|==============================#
     #=====================Target determining======================#
     #==============================|==============================#
@@ -691,13 +693,33 @@ class MyBot(BaseAgent):
         return (x3, y3, x4, y4, True)
 
     def getArcLineArcControllerState(self, path, car):
-        steer = 0
-        if(path.c1_length < 100 and path.tangent_length < 100):
-            steer = steer_toward_target(car, path.end)
-        elif(path.c1_length < 100 ):
-            steer = steer_toward_target(car, path.tangent_end)
-        else:
-            steer = steer_toward_target(car, path.tangent_start)
+        car_location = Vec3(car.physics.location)
+
+        distance_to_next_point = None
+        target = None
+
+        if(path.phase == 0):
+            distance_to_next_point = Vec3.length(car_location - path.tangent_start)
+            target = path.tangent_start
+            if(distance_to_next_point < 100):
+                path.phase += 1
+        
+        if(path.phase == 1):
+            distance_to_next_point = Vec3.length(car_location - path.tangent_end)
+            target = path.tangent_end
+            if(distance_to_next_point < 100):
+                path.phase += 1
+
+        if(path.phase == 2):
+            distance_to_next_point = Vec3.length(car_location - path.end)
+            target = path.end
+            if(distance_to_next_point < 100):
+                path.phase += 1
+
+
+
+        steer = steer_toward_target(car, target)
+
         return(steer)
 
 
@@ -968,6 +990,7 @@ class Tangent:
 
 class ArcLineArcPath:
     def __init__(self):
+       
         self.length = 10000000
         self.tangent_length = 0
         self.c1_length = 0
@@ -983,3 +1006,19 @@ class ArcLineArcPath:
         self.tangent_start = Vec3(0, 0, 0)
         self.tangent_end = Vec3(0, 0, 0)
         self.end = Vec3(0, 0, 0)
+        self.phase = 0
+
+class Maneuver:
+    def __init__(self):
+        # target
+        self.target = None
+
+        # target Location
+        self.target_location = None
+
+
+        # generated path
+        self.path = None
+        self.forseen_ball_locations = None
+
+
