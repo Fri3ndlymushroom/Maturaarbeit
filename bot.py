@@ -297,8 +297,6 @@ class MyBot(BaseAgent):
         self.active_sequence: Sequence = None
         self.boost_pad_tracker = BoostPadTracker()
 
-        self.path_length = 0
-
         self.first_call = True
 
 
@@ -336,10 +334,11 @@ class MyBot(BaseAgent):
 
         if not self.checkIfManeuverFinished() and not self.checkIfUnforseenAction() and not self.first_call:
             # further execute maneuver
-            print(self.maneuver.path.tangent_length)
             controls.steer = self.getArcLineArcControllerState(self.maneuver.path, my_car)
-            controls.throttle = 0.2
+            controls.throttle = 1
             controls.boost = False
+            self.renderArcLineArcPath(self.maneuver.path, 0, 0)
+            
         else:
             #get new maneuver
             #self.maneuver.target = learningAgent.getAction(packet)
@@ -363,6 +362,10 @@ class MyBot(BaseAgent):
 
 
     def checkIfManeuverFinished(self):
+        if(self.maneuver.path):
+            if(self.maneuver.path.phase == 3):
+                return True
+        
         return False
     def checkIfUnforseenAction(self):
         return False
@@ -375,12 +378,17 @@ class MyBot(BaseAgent):
         car_location = Vec3(packet.game_cars[self.index].physics.location)
 
 
-        #distance = Vec3.length(ball_location - car_location)
-        distance = self.path_length
+        distance = Vec3.length(ball_location - car_location) * 2
+
+        ball_location = self.predictBallLocation(60)
+
+
+
+
+        """
         car_velocity = Vec3.dot(packet.game_cars[self.index].physics.velocity, Vec3.normalized(Orientation(packet.game_cars[self.index].physics.rotation).forward))
         target_reached = False
         time = 0
-        #print(round(distance))
         while not target_reached:
 
             distance -= car_velocity / 10
@@ -390,8 +398,8 @@ class MyBot(BaseAgent):
 
             time += 1
             if(distance < 0):target_reached = True
-        #print(time)
-        ball_location = self.predictBallLocation(time)
+        
+        """
 
 
         self.renderer.draw_line_3d(Vec3(ball_location.x, ball_location.x, 10000), ball_location, self.renderer.blue())
@@ -407,7 +415,7 @@ class MyBot(BaseAgent):
         ball_to_right_target_direction = Vec3.normalized(right_most_target - ball_location)
         direction_of_approach = Vec3.clamp2D(direction=car_to_ball_direction, start=ball_to_left_target_direction, end=ball_to_right_target_direction)
         #offset would be 92.75 but is better with a greater value for arc line arc
-        offset_ball_location = ball_location - direction_of_approach * 100
+        offset_ball_location = ball_location - direction_of_approach * 150
         return [offset_ball_location, direction_of_approach]
 
 
@@ -427,7 +435,8 @@ class MyBot(BaseAgent):
         car_location = Vec3(my_car.physics.location)
         car_rotation = my_car.physics.rotation
         car_velocity = Vec3(my_car.physics.velocity)
-        steering_radius = self.getSteeringRadius(car_velocity, car_rotation)
+        #steering_radius = self.getSteeringRadius(car_velocity, car_rotation)
+        steering_radius = 1 / 0.001375
 
         self.renderer.draw_line_3d(target_location,target_location+ target_direction*600, self.renderer.red())
 
@@ -556,8 +565,7 @@ class MyBot(BaseAgent):
                 best_path.c1_length = c1_arc_length
                 best_path.c2_length = c2_arc_length
         
-        print("c1: ", round(best_path.c1_length),"u, ", round(best_path.c1_angle),"deg, ", "t: ", round(best_path.tangent_length),"u, ", "c2: ", round(best_path.c2_length),"u, ", round(best_path.c2_angle),"deg, ", "i: ", best_path.name)
-        self.renderer.draw_polyline_3d([best_path.start, best_path.tangent_start, best_path.tangent_end, best_path.end], self.renderer.red())
+
         return(best_path)
 
             
@@ -694,6 +702,15 @@ class MyBot(BaseAgent):
 
     def getArcLineArcControllerState(self, path, car):
         car_location = Vec3(car.physics.location)
+        car_rotation = car.physics.rotation
+        car_velocity = Vec3(car.physics.velocity)
+
+        radius = 1 / 0.001375
+        needed_radius = self.getSteeringRadius(car_velocity, car_rotation)
+
+        turn_force = 1 / radius * needed_radius
+
+        print(turn_force)
 
         distance_to_next_point = None
         target = None
@@ -701,6 +718,12 @@ class MyBot(BaseAgent):
         if(path.phase == 0):
             distance_to_next_point = Vec3.length(car_location - path.tangent_start)
             target = path.tangent_start
+
+
+
+
+
+
             if(distance_to_next_point < 100):
                 path.phase += 1
         
@@ -717,10 +740,12 @@ class MyBot(BaseAgent):
                 path.phase += 1
 
 
-
-        steer = steer_toward_target(car, target)
-
-        return(steer)
+        if target != None:
+            steer = steer_toward_target(car, target)
+            print(steer)
+        else:
+            steer = 0
+        return(steer * turn_force)
 
 
 
@@ -913,7 +938,6 @@ class MyBot(BaseAgent):
         end_rotation = Vec3.angle((path.end - path.c2_center), Vec3(0, -1, 0))
         rotation_snippet = path.c2_angle / every * math.pi / 180
         if(path.end.y > 0): start_rotation = -start_rotation
-        print(spots[1])
         for i in range(every + 1):
             angle = 0
             if(spots[1] == "l"):
@@ -930,6 +954,7 @@ class MyBot(BaseAgent):
         self.renderer.draw_polyline_3d( p , self.renderer.red())
         p = self.getPointsInSircle(20, path.c2_radius, path.c2_center)
         self.renderer.draw_polyline_3d( p , self.renderer.red())
+        self.renderer.draw_line_3d(path.tangent_start, path.tangent_end, self.renderer.red())
         """
         # circle 1
         
@@ -937,7 +962,6 @@ class MyBot(BaseAgent):
         end_rotation = Vec3.angle((path.start - path.c1_center), Vec3(0, -1, 0))
         rotation_snippet = ((start_rotation**2)**0.5 + (end_rotation**2)**0.5) / every
         indicator = start_rotation - end_rotation 
-        print(indicator)
         for i in range(every + 1):
             angle = 0
             if(path.name == "rl" or path.name == "rr"):
