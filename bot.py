@@ -297,12 +297,10 @@ class MyBot(BaseAgent):
         self.active_sequence: Sequence = None
         self.boost_pad_tracker = BoostPadTracker()
 
-        self.first_call = True
+        self.step = 1
+        self.epsiolon = 1
 
-
-
-
-        self.maneuver = Maneuver()
+        self.path_length = 0
 
     def initialize_agent(self):
         # Set up information about the boost pads now that the game is active and the info is available
@@ -310,8 +308,6 @@ class MyBot(BaseAgent):
 
     def get_output(self, packet: GameTickPacket) -> SimpleControllerState:
         self.renderer.begin_rendering()
-
-        self.packet = packet
         
         # get info
         self.index = 0
@@ -325,78 +321,32 @@ class MyBot(BaseAgent):
         ball_rotation = packet.game_ball.physics.rotation
 
         self.predictBallPath()
-
+        
+        # decision
+        target = 0
+        #target = learningAgent.getAction(packet)
 
         
         # execution & controls
         controls = SimpleControllerState()
 
-
-        if not self.checkIfManeuverFinished() and not self.checkIfUnforseenAction() and not self.first_call:
-            # further execute maneuver
-            controls.steer = self.getArcLineArcControllerState(self.maneuver.path, my_car)
-
-            
-            self.renderer.draw_line_3d(Vec3(self.maneuver.ball_prediction.x, self.maneuver.ball_prediction.y, 10000), self.maneuver.ball_prediction, self.renderer.red())
-            controls.throttle = self.maneuver.throttle
-            controls.boost = False
-            self.renderArcLineArcPath(self.maneuver.path, 0, 0)
-            
-        else:
-            #get new maneuver
-            #self.maneuver.target = learningAgent.getAction(packet)
-            self.maneuver.target = 0
-            self.maneuver.frames = 0
-            self.getTargetLocation()
-            self.maneuver.path = self.computePossibleArcLineArcDrivePaths(self.packet, self.maneuver.target_location[0], self.maneuver.target_location[1])
-            self.getTimeToDestination()
-
-
+        # attack
+        if target == 0:
+            target_location_info = self.shootBallTowardsTarget(packet, Vec3(800, 5213, 321.3875), Vec3(-800, 5213, 321.3875))
+            path = self.computePossibleArcLineArcDrivePaths(packet, target_location_info[0], target_location_info[1])
+            self.renderArcLineArcPath(path, car_rotation, ball_rotation)
+            self.path_length = path.length
+            controls.steer = self.getArcLineArcControllerState(path, my_car)
+            controls.throttle = 1
+            controls.boost = True
 
 
         self.renderer.end_rendering()
-        self.first_call = False
         return controls
 
 
 
-    def getTargetLocation(self):
-        if(self.maneuver.target == 0):
-            #attack
-            self.maneuver.target_location = self.shootBallTowardsTarget(self.packet, Vec3(800, 5213, 321.3875), Vec3(-800, 5213, 321.3875))
 
-
-    def checkIfManeuverFinished(self):
-        if(self.maneuver.path):
-            if(self.maneuver.path.phase == 3):
-                return True
-        
-        return False
-    def checkIfUnforseenAction(self):
-
-
-
-        #print(self.maneuver.frames)
-        if(self.maneuver.frames>1000): return True
-        self.maneuver.frames += 1
-        return False
-    
-    def getTimeToDestination(self):
-        my_car = self.packet.game_cars[self.index]
-        car_rotation = car_rotation = my_car.physics.rotation
-        car_velocity = Vec3(my_car.physics.velocity)
-
-
-        t = 0
-        s = self.maneuver.path.length
-        v = Vec3.dot(car_velocity, Vec3.normalized(Orientation(car_rotation).forward))
-
-        while s > 0:
-            v += self.getAcceleration(v) / 100
-            s -= v / 10
-            t += 1
-        self.maneuver.throttle = 1 / 60 * t
-        #print(t)
 
 
 
@@ -409,32 +359,24 @@ class MyBot(BaseAgent):
         car_location = Vec3(packet.game_cars[self.index].physics.location)
 
 
-        distance = Vec3.length(ball_location - car_location) * 2
-
-
-        x = ball_location
-
-        ball_location = self.predictBallLocation(359)
-
-        self.maneuver.ball_prediction = ball_location
-
-
-
-        """
+        #distance = Vec3.length(ball_location - car_location)
+        distance = self.path_length
         car_velocity = Vec3.dot(packet.game_cars[self.index].physics.velocity, Vec3.normalized(Orientation(packet.game_cars[self.index].physics.rotation).forward))
         target_reached = False
         time = 0
+
         while not target_reached:
 
             distance -= car_velocity / 10
             car_velocity += self.getAcceleration(car_velocity) / 100
 
-            if(car_velocity > 1410): car_velocity = 1410
+            if(car_velocity > 2000): car_velocity = 2000
 
             time += 1
             if(distance < 0):target_reached = True
-        
-        """
+        print(time)
+
+        ball_location = self.predictBallLocation(time)
 
 
         self.renderer.draw_line_3d(Vec3(ball_location.x, ball_location.x, 10000), ball_location, self.renderer.blue())
@@ -450,7 +392,7 @@ class MyBot(BaseAgent):
         ball_to_right_target_direction = Vec3.normalized(right_most_target - ball_location)
         direction_of_approach = Vec3.clamp2D(direction=car_to_ball_direction, start=ball_to_left_target_direction, end=ball_to_right_target_direction)
         #offset would be 92.75 but is better with a greater value for arc line arc
-        offset_ball_location = ball_location - direction_of_approach * 150
+        offset_ball_location = ball_location - direction_of_approach * 100
         return [offset_ball_location, direction_of_approach]
 
 
@@ -470,8 +412,7 @@ class MyBot(BaseAgent):
         car_location = Vec3(my_car.physics.location)
         car_rotation = my_car.physics.rotation
         car_velocity = Vec3(my_car.physics.velocity)
-        #steering_radius = self.getSteeringRadius(car_velocity, car_rotation)
-        steering_radius = 1 / 0.001375 
+        steering_radius = self.getSteeringRadius(car_velocity, car_rotation)
 
         self.renderer.draw_line_3d(target_location,target_location+ target_direction*600, self.renderer.red())
 
@@ -600,7 +541,8 @@ class MyBot(BaseAgent):
                 best_path.c1_length = c1_arc_length
                 best_path.c2_length = c2_arc_length
         
-
+    
+        self.renderer.draw_polyline_3d([best_path.start, best_path.tangent_start, best_path.tangent_end, best_path.end], self.renderer.red())
         return(best_path)
 
             
@@ -736,45 +678,14 @@ class MyBot(BaseAgent):
         return (x3, y3, x4, y4, True)
 
     def getArcLineArcControllerState(self, path, car):
-        car_location = Vec3(car.physics.location)
-        car_rotation = car.physics.rotation
-        car_velocity = Vec3(car.physics.velocity)
-
-        radius = 1 / 0.001375
-        needed_radius = self.getSteeringRadius(car_velocity, car_rotation)
-
-        turn_force = 1 / radius * needed_radius
-
-
-        distance_to_next_point = None
-        target = None
-
-
-        if(path.phase == 0):
-            distance_to_next_point = Vec3.length(car_location - path.tangent_start)
-            target = path.tangent_start
-            print(distance_to_next_point)
-            if(distance_to_next_point < 300):
-                path.phase += 1
-        
-        if(path.phase == 1):
-            distance_to_next_point = Vec3.length(car_location - path.tangent_end)
-            target = path.tangent_end
-            if(distance_to_next_point < 300):
-                path.phase += 1
-
-        if(path.phase == 2):
-            distance_to_next_point = Vec3.length(car_location - path.end)
-            target = path.end
-            if(distance_to_next_point < 300):
-                path.phase += 1
-
-
-        if target != None:
-            steer = steer_toward_target(car, target)
+        steer = 0
+        if(path.c1_length < 100 and path.tangent_length < 100):
+            steer = steer_toward_target(car, path.end)
+        elif(path.c1_length < 100 ):
+            steer = steer_toward_target(car, path.tangent_end)
         else:
-            steer = 0
-        return(steer * turn_force)
+            steer = steer_toward_target(car, path.tangent_start)
+        return(steer)
 
 
 
@@ -834,9 +745,19 @@ class MyBot(BaseAgent):
 
 
     def predictBallLocation(self, time):
+
+        if time > 60: time = 60
+
+        time = round(359/60*time)
+
+
+
+
         ball_prediction = self.get_ball_prediction_struct()
+
         ball_prediction_time = ball_prediction.slices[time].physics.location
-        print(ball_prediction.num_slices)
+
+
         return Vec3(ball_prediction_time.x, ball_prediction_time.y, ball_prediction_time.z) 
 
 
@@ -981,7 +902,6 @@ class MyBot(BaseAgent):
         self.renderer.draw_polyline_3d( p , self.renderer.red())
         p = self.getPointsInSircle(20, path.c2_radius, path.c2_center)
         self.renderer.draw_polyline_3d( p , self.renderer.red())
-        self.renderer.draw_line_3d(path.tangent_start, path.tangent_end, self.renderer.red())
         """
         # circle 1
         
@@ -989,6 +909,7 @@ class MyBot(BaseAgent):
         end_rotation = Vec3.angle((path.start - path.c1_center), Vec3(0, -1, 0))
         rotation_snippet = ((start_rotation**2)**0.5 + (end_rotation**2)**0.5) / every
         indicator = start_rotation - end_rotation 
+
         for i in range(every + 1):
             angle = 0
             if(path.name == "rl" or path.name == "rr"):
@@ -1041,7 +962,6 @@ class Tangent:
 
 class ArcLineArcPath:
     def __init__(self):
-       
         self.length = 10000000
         self.tangent_length = 0
         self.c1_length = 0
@@ -1057,25 +977,3 @@ class ArcLineArcPath:
         self.tangent_start = Vec3(0, 0, 0)
         self.tangent_end = Vec3(0, 0, 0)
         self.end = Vec3(0, 0, 0)
-        self.phase = 0
-
-class Maneuver:
-    def __init__(self):
-        # target
-        self.target = None
-
-        # target Location
-        self.target_location = None
-
-
-        # generated path
-        self.path = None
-        self.forseen_ball_locations = None
-
-        self.throttle = 0
-
-        self.frames = 0
-
-        self.ball_prediction = None
-
-
