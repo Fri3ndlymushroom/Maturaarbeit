@@ -303,6 +303,11 @@ class MyBot(BaseAgent):
         self.path_length = 0
         self.goals = [0, 0]
 
+        self.last_prediction = None
+        self.last_time = None
+
+        self.target_index = None
+
 
     def initialize_agent(self):
         # Set up information about the boost pads now that the game is active and the info is available
@@ -329,18 +334,37 @@ class MyBot(BaseAgent):
         self.predictBallPath()
         
         # decision
-        target = 0
-        #target = learningAgent.getAction(packet)
+
+        if self.unforseenAction():
+            print("reload")
+            self.target_index = 0
+            #self.target_index = learningAgent.getAction(packet)
+        else:
+            print("no reload")
+
+
+        
+        
+        # execution & controls
+
+        # if a sequence is running further execute it
         if self.active_sequence is not None and not self.active_sequence.done:
             controls = self.active_sequence.tick(packet)
             if controls is not None:
                 return controls
-        
-        # execution & controls
+
+
+
         controls = SimpleControllerState()
 
-        # attack
-        if target == 0:
+        
+
+
+
+
+
+        if self.target_index == 0:
+            # attack
             target_location_info = self.shootBallTowardsTarget(Vec3(800, 5213, 321.3875), Vec3(-800, 5213, 321.3875))
             path = self.computePossibleArcLineArcDrivePaths(target_location_info[0], target_location_info[1])
             self.renderArcLineArcPath(path)
@@ -359,7 +383,46 @@ class MyBot(BaseAgent):
 
 
 
+    #==============================|==============================#
+    #=====================Situation assessment====================#
+    #==============================|==============================#   
+    
+    def unforseenAction(self):
+        if self.last_prediction == None:
+            self.last_prediction = self.get_ball_prediction_struct().slices
+            self.last_time = self.packet.game_info.seconds_elapsed
 
+            return True;
+
+
+        time = self.packet.game_info.seconds_elapsed
+        delta_time = round(359/60*(time - self.last_time) * 10)
+        if(delta_time > 1):
+            prediction = self.get_ball_prediction_struct().slices
+            last_prediction = self.last_prediction
+
+            #print(delta_time)
+
+            new_prediction = prediction[100].physics.location
+            old_prediction = last_prediction[100-delta_time].physics.location
+
+
+
+
+            deviation = Vec3.length(Vec3(new_prediction.x, new_prediction.y, new_prediction.z) - Vec3(old_prediction.x, old_prediction.y, old_prediction.z))
+
+
+            self.last_prediction = self.get_ball_prediction_struct().slices
+            self.last_time = self.packet.game_info.seconds_elapsed
+            if(deviation > 35):
+                return True
+
+
+        
+        return False
+        
+
+        
 
 
 
@@ -899,7 +962,6 @@ class MyBot(BaseAgent):
 
     def chat(self):
         message_index = round(random.random()*6)
-        print(message_index)
 
 
         if(self.my_car.score_info.goals > self.goals[0]):
