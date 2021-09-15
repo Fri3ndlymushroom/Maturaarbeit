@@ -190,6 +190,9 @@ class QLearningAgent:
         self.DISTANCE_PENALTY_MULTIPLICATOR = 5
 
 
+
+
+
     
     def getAction(self, packet):
 
@@ -297,7 +300,7 @@ class MyBot(BaseAgent):
         self.active_sequence: Sequence = None
         self.boost_pad_tracker = BoostPadTracker()
 
-        self.step = 1
+        self.frame = -1
         self.epsiolon = 1
 
         self.path_length = 0
@@ -308,12 +311,16 @@ class MyBot(BaseAgent):
 
         self.target_index = None
 
+        self.sum = 0
+
 
     def initialize_agent(self):
         # Set up information about the boost pads now that the game is active and the info is available
         self.boost_pad_tracker.initialize_boosts(self.get_field_info())
 
     def get_output(self, packet: GameTickPacket) -> SimpleControllerState:
+        self.frame += 1
+
         self.renderer.begin_rendering()
         # get info
         self.index = 0
@@ -329,18 +336,17 @@ class MyBot(BaseAgent):
 
         self.chat()
 
-        
+        self.sum += self.car_forward_velocity
 
+        print(self.sum/self.frame)
         self.predictBallPath()
         
         # decision
 
         if self.unforseenAction():
-            print("reload")
             self.target_index = 0
             #self.target_index = learningAgent.getAction(packet)
-        else:
-            print("no reload")
+
 
 
         
@@ -378,7 +384,7 @@ class MyBot(BaseAgent):
             
 
 
-        self.renderer.end_rendering()
+        self.renderer.end_rendering()   
         return controls
 
 
@@ -445,7 +451,7 @@ class MyBot(BaseAgent):
             distance -= car_velocity / 10
             car_velocity += self.getAcceleration(car_velocity) / 100
 
-            if(car_velocity > 1410): car_velocity = 1410
+            if(car_velocity > 1100): car_velocity = 1100
 
             time += 1
             if(distance < 0):target_reached = True
@@ -454,7 +460,7 @@ class MyBot(BaseAgent):
         ball_location = self.predictBallLocation(time)
 
 
-        self.renderer.draw_line_3d(Vec3(ball_location.x, ball_location.x, 10000), ball_location, self.renderer.red())
+        self.renderer.draw_line_3d(Vec3(ball_location.x, ball_location.y, 10000), Vec3(ball_location.x, ball_location.y,0), self.renderer.red())
         # max speed = 1410
 
 
@@ -484,12 +490,12 @@ class MyBot(BaseAgent):
     def computePossibleArcLineArcDrivePaths(self, target_location, target_direction):
         steering_radius = self.getSteeringRadius()
 
-        self.renderer.draw_line_3d(target_location,target_location+ target_direction*600, self.renderer.red())
+        #self.renderer.draw_line_3d(target_location,target_location+ target_direction*600, self.renderer.red())
 
 
         # car circles
         car_direction = Orientation(self.car_rotation).forward
-        self.renderer.draw_line_3d(self.car_location,self.car_location+ car_direction*600, self.renderer.red())
+        #self.renderer.draw_line_3d(self.car_location,self.car_location+ car_direction*600, self.renderer.red())
         
 
         # car circle 1
@@ -512,7 +518,7 @@ class MyBot(BaseAgent):
 
 
         # target circles
-        self.renderer.draw_line_3d(target_location,target_location+ target_direction*100, self.renderer.red())
+        #self.renderer.draw_line_3d(target_location,target_location+ target_direction*100, self.renderer.red())
 
 
         # target circle 1
@@ -612,7 +618,7 @@ class MyBot(BaseAgent):
                 best_path.c2_length = c2_arc_length
         
     
-        self.renderer.draw_polyline_3d([best_path.start, best_path.tangent_start, best_path.tangent_end, best_path.end], self.renderer.red())
+        #self.renderer.draw_polyline_3d([best_path.start, best_path.tangent_start, best_path.tangent_end, best_path.end], self.renderer.red())
         return(best_path)
 
             
