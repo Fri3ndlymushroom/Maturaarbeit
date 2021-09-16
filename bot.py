@@ -348,10 +348,9 @@ class MyBot(BaseAgent):
         if self.unforseenAction():
             self.maneuver_start = self.packet.game_info.seconds_elapsed
             self.target_index = 0
-            self.maneuver_time = self.path_length / 100
+            self.maneuver_time = self.path_length / 140
             if(self.maneuver_time > 60): self.maneuver_time = 60
-
-            print(self.maneuver_time)
+            #print(self.maneuver_time)
             
 
             #self.target_index = learningAgent.getAction(packet)
@@ -388,7 +387,7 @@ class MyBot(BaseAgent):
             controls.throttle = self.getThrottle()
             controls.boost = False
             
-            if(Vec3.length(self.car_location - self.ball_location) < 200):
+            if(Vec3.length(self.car_location - self.ball_location) < 180):
                 return self.begin_front_flip(self.packet)
             
 
@@ -407,12 +406,13 @@ class MyBot(BaseAgent):
         diff = needed_speed - speed
 
 
-        if(diff > 1000): diff = 1000
-        if(diff < -1000): diff=-1000
+        throttle = diff/1000 * 1.5
 
-        throttle = diff/1000
 
+        if(throttle > 1): throttle = 1
+        if(throttle < -1): throttle=-1
         #throttle = 1
+        print(throttle)
         return throttle
 
  
@@ -614,9 +614,10 @@ class MyBot(BaseAgent):
             
 
             tangent_length = Vec3.length(tangent.end - tangent.start)
-
-
-            if( Vec3.length(tangent.circle1_center - tangent.circle2_center) < 200):
+            if(Vec3.length(self.car_location - tangent.end) < 200):
+                c1_arc_angle = 0
+                c1_arc_length = 0
+            elif( Vec3.length(tangent.circle1_center - tangent.circle2_center) < 200):
                 c2_arc_angle = 0
                 c2_arc_length = 0
 
@@ -646,15 +647,15 @@ class MyBot(BaseAgent):
                 best_path.c2_angle = c2_arc_angle
                 best_path.c1_length = c1_arc_length
                 best_path.c2_length = c2_arc_length
-        
-        """print("name: ", best_path.name)
+        """
+        print("name: ", best_path.name)
         print("ang1: ", round(best_path.c1_angle))
         print("ang2: ", round(best_path.c2_angle))
         print("len1: ", round(best_path.c1_length))
         print("lenT: ", round(best_path.tangent_length))
         print("len2: ", round(best_path.c2_length))
         print("len: ", round(best_path.length))
-        """
+"""
 
         #print(best_path.length)
 
