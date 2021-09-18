@@ -348,12 +348,28 @@ class MyBot(BaseAgent):
         if self.unforseenAction():
             self.maneuver_start = self.packet.game_info.seconds_elapsed
             self.target_index = 0
-            self.maneuver_time = self.path_length / 140
-            if(self.maneuver_time > 60): self.maneuver_time = 60
+            #self.target_index = learningAgent.getAction(packet)
+
+
+            v0 = self.car_forward_velocity
+            t = 0
+            d = self.path_length
+            max_speed = 1400
+
+            while d > 0:
+                d -= v0 / 10
+                v0 += self.getAcceleration(v0) / 100
+
+                if(v0 > max_speed): v0 = max_speed
+                t += 1
+            t += 5
+            if(t > 60): t = 60
+
+            self.maneuver_time = t
+
             #print(self.maneuver_time)
             
 
-            #self.target_index = learningAgent.getAction(packet)
 
 
 
@@ -384,8 +400,7 @@ class MyBot(BaseAgent):
             self.renderArcLineArcPath(path)
             self.path_length = path.length
             controls.steer = self.getArcLineArcControllerState(path)
-            controls.throttle = self.getThrottle()
-            controls.boost = False
+            controls = self.getThrottle(controls)
             
             if(Vec3.length(self.car_location - self.ball_location) < 180):
                 return self.begin_front_flip(self.packet)
@@ -397,7 +412,7 @@ class MyBot(BaseAgent):
 
 
 
-    def getThrottle(self):
+    def getThrottle(self, controls):
 
         path_length = self.path_length
         time_left = (self.maneuver_time - self.since_maneuver_start) / 10
@@ -406,14 +421,19 @@ class MyBot(BaseAgent):
         diff = needed_speed - speed
 
 
-        throttle = diff/1000 * 1.5
+        throttle = diff/1000
 
 
-        if(throttle > 1): throttle = 1
+        if(throttle > 1): 
+            if(throttle > 1.5):
+                controls.boost = True
+            throttle = 1
+
         if(throttle < -1): throttle=-1
         #throttle = 1
-        print(throttle)
-        return throttle
+        controls.throttle = throttle
+
+        return controls
 
  
 
@@ -475,13 +495,8 @@ class MyBot(BaseAgent):
 
         self.since_maneuver_start = -1*(self.maneuver_start*10 - self.packet.game_info.seconds_elapsed*10)
 
-        ball_location = self.predictBallLocation(round(self.maneuver_time - self.since_maneuver_start))
+        ball_location = self.predictBallLocation(self.maneuver_time - self.since_maneuver_start)
 
-        #ball_location = Vec3(0, 0, 0)
-
-        
-        self.renderer.draw_line_3d(Vec3(ball_location.x, ball_location.y, 10000), Vec3(ball_location.x, ball_location.y,0), self.renderer.red())
-        # max speed = 1410
 
 
         
@@ -494,6 +509,24 @@ class MyBot(BaseAgent):
         direction_of_approach = Vec3.clamp2D(direction=car_to_ball_direction, start=ball_to_left_target_direction, end=ball_to_right_target_direction)
         #offset would be 92.75 but is better with a greater value for arc line arc
         offset_ball_location = ball_location - direction_of_approach * 100
+
+
+        self.renderer.draw_line_3d(Vec3(ball_location.x, ball_location.y,0), Vec3(ball_location.x, ball_location.y,ball_location.z+100), self.renderer.red())
+        self.renderer.draw_line_3d(ball_location, Vec3(ball_location.x, ball_location.y+100,ball_location.z), self.renderer.red())
+        self.renderer.draw_line_3d(ball_location, Vec3(ball_location.x+100, ball_location.y,ball_location.z), self.renderer.red())
+
+        size = 7
+
+        self.renderer.draw_rect_3d(Vec3(ball_location.x, ball_location.y,ball_location.z),size, size, True, self.renderer.red())
+
+
+
+
+
+        self.renderer.draw_line_3d(ball_location, ball_location + direction_of_approach * 500, self.renderer.purple())
+
+
+
         return [offset_ball_location, direction_of_approach]
 
 
@@ -509,6 +542,8 @@ class MyBot(BaseAgent):
 
     def computePossibleArcLineArcDrivePaths(self, target_location, target_direction):
         steering_radius = self.getSteeringRadius()
+
+        if(steering_radius < 300): steering_radius = 300
 
         #self.renderer.draw_line_3d(target_location,target_location+ target_direction*600, self.renderer.red())
 
@@ -803,10 +838,13 @@ class MyBot(BaseAgent):
         else:
             steer = steer_toward_target(self.my_car, path.tangent_start)
 
-
+        mult = 1
+        rad = self.getSteeringRadius()
+        if(rad < 300):
+            mult = 1 / 300 * rad
 
         
-        return(steer)
+        return(steer* mult)
 
 
 
@@ -946,7 +984,7 @@ class MyBot(BaseAgent):
 
         
         radius = 1/curvature
-        
+
         
         return(radius)
 
