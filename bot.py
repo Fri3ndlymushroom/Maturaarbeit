@@ -309,11 +309,13 @@ class MyBot(BaseAgent):
         self.last_prediction = None
         self.last_time = None
 
-        self.target_index = None
+        self.target_index = 0
 
         self.maneuver_time = 0
         self.maneuver_start = 0
         self.since_maneuver_start = 0
+
+        self.min_rad = 500
 
 
     def initialize_agent(self):
@@ -350,11 +352,10 @@ class MyBot(BaseAgent):
             self.target_index = 0
             #self.target_index = learningAgent.getAction(packet)
 
-
             v0 = self.car_forward_velocity
             t = 0
             d = self.path_length
-            max_speed = 1400
+            max_speed = 1410
 
             while d > 0:
                 d -= v0 / 10
@@ -362,12 +363,12 @@ class MyBot(BaseAgent):
 
                 if(v0 > max_speed): v0 = max_speed
                 t += 1
-            t += 5
+            
             if(t > 60): t = 60
 
             self.maneuver_time = t
 
-            #print(self.maneuver_time)
+
             
 
 
@@ -402,7 +403,7 @@ class MyBot(BaseAgent):
             controls.steer = self.getArcLineArcControllerState(path)
             controls = self.getThrottle(controls)
             
-            if(Vec3.length(self.car_location - self.ball_location) < 180):
+            if(Vec3.length(self.car_location - self.ball_location) < 200):
                 return self.begin_front_flip(self.packet)
             
 
@@ -416,7 +417,7 @@ class MyBot(BaseAgent):
 
         path_length = self.path_length
         time_left = (self.maneuver_time - self.since_maneuver_start) / 10
-        needed_speed = path_length / time_left
+        needed_speed = path_length / (time_left + 0.1)
         speed = self.car_forward_velocity
         diff = needed_speed - speed
 
@@ -425,14 +426,13 @@ class MyBot(BaseAgent):
 
 
         if(throttle > 1): 
-            if(throttle > 1.5):
-                controls.boost = True
             throttle = 1
 
         if(throttle < -1): throttle=-1
         #throttle = 1
         controls.throttle = throttle
 
+        controls.throttle = 1
         return controls
 
  
@@ -474,6 +474,19 @@ class MyBot(BaseAgent):
             if(deviation > 35):
                 return True
 
+
+        v = self.car_forward_velocity
+        t0 = (self.maneuver_time - self.since_maneuver_start)
+        d = self.path_length
+
+        vn = d / (t0 +0.0001)
+
+
+        if(vn > 1500):
+            return True
+
+        if(vn < 400):
+            return True
 
         
         return False
@@ -543,7 +556,7 @@ class MyBot(BaseAgent):
     def computePossibleArcLineArcDrivePaths(self, target_location, target_direction):
         steering_radius = self.getSteeringRadius()
 
-        if(steering_radius < 300): steering_radius = 300
+        if(steering_radius < self.min_rad): steering_radius = self.min_rad
 
         #self.renderer.draw_line_3d(target_location,target_location+ target_direction*600, self.renderer.red())
 
@@ -661,7 +674,8 @@ class MyBot(BaseAgent):
             arc_line_arc_length = c1_arc_length + tangent_length + c2_arc_length
             
 
-            
+            if(self.checkIfOutOfMap([tangent.start, tangent.end])):
+                tangent.possible = False
 
 
             if best_path.length > arc_line_arc_length and tangent.possible:
@@ -682,17 +696,6 @@ class MyBot(BaseAgent):
                 best_path.c2_angle = c2_arc_angle
                 best_path.c1_length = c1_arc_length
                 best_path.c2_length = c2_arc_length
-        """
-        print("name: ", best_path.name)
-        print("ang1: ", round(best_path.c1_angle))
-        print("ang2: ", round(best_path.c2_angle))
-        print("len1: ", round(best_path.c1_length))
-        print("lenT: ", round(best_path.tangent_length))
-        print("len2: ", round(best_path.c2_length))
-        print("len: ", round(best_path.length))
-"""
-
-        #print(best_path.length)
 
         #self.renderer.draw_polyline_3d([best_path.start, best_path.tangent_start, best_path.tangent_end, best_path.end], self.renderer.red())
         return(best_path)
@@ -838,10 +841,11 @@ class MyBot(BaseAgent):
         else:
             steer = steer_toward_target(self.my_car, path.tangent_start)
 
+
         mult = 1
         rad = self.getSteeringRadius()
-        if(rad < 300):
-            mult = 1 / 300 * rad
+        if(rad < self.min_rad):
+            mult = 1 / self.min_rad * rad
 
         
         return(steer* mult)
@@ -863,8 +867,8 @@ class MyBot(BaseAgent):
         # Do a front flip. We will be committed to this for a few seconds and the bot will ignore other
         # logic during that time because we are setting the active_sequence.
         self.active_sequence = Sequence([
-            ControlStep(duration=0.05, controls=SimpleControllerState(jump=True)),
-            ControlStep(duration=0.05, controls=SimpleControllerState(jump=False)),
+            ControlStep(duration=0.02, controls=SimpleControllerState(jump=True)),
+            ControlStep(duration=0.02, controls=SimpleControllerState(jump=False)),
             ControlStep(duration=0.2, controls=SimpleControllerState(jump=True, pitch=-1)),
             ControlStep(duration=0.8, controls=SimpleControllerState()),
         ])
@@ -1010,6 +1014,28 @@ class MyBot(BaseAgent):
         return acceleration
 
 
+    def checkIfOutOfMap(self, locs):
+        possible = True
+        for loc in locs:
+            # general bounds
+            if(loc.x > 4096 or loc.x < -4096 or loc.y > 5120 + 880 or loc.y < -5120 - 880): possible = False
+            #goals
+            if(loc.y > 5120 or loc.y < -5120):
+                if(loc.x > 893 or loc.x < -893):
+                    possible = False
+            # edges
+            if(
+                #upper left
+                (loc.y > 5120 - 1152 and loc.x > 4096 - 1152)or
+                #upper right 
+                (loc.y > 5120 - 1152 and loc.x < -4096 + 1152)or
+                # down left
+                (loc.y < -5120 + 1152 and loc.x > 4096 - 1152)or
+                #down right
+                (loc.y < -5120 + 1152 and loc.x < -4096 + 1152)
+                ):
+                possible = False
+        return not possible
 
 
 
