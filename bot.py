@@ -11,7 +11,6 @@ from util.drive import steer_toward_target
 from util.sequence import Sequence, ControlStep
 from util.vec import Vec3
 from util.orientation import Orientation
-
 import math
 
 
@@ -45,21 +44,6 @@ class ModelAgent():
         self.MINIBATCH_SIZE = 64
         self.DISCOUNT = 0.99
         self.ACTION_SPACE_SIZE = 4
-        # possible actions
-        # throttle forwards
-        # throttle backwards
-        # steer right
-        # steer left
-        # pich down
-        # pitch up
-        # yaw left
-        # yaw right
-        # roll left
-        # roll right
-        # jump
-        # boost
-        # handbrake
-        # no action
 
         # es gibt zwei models weil das model sonst für jeden schritt overfitted. Desswegen wird das eine immer nur alle x schritte an das andere angepasst. Man predicted aber immer am hauptmodel
         # hauptmodel
@@ -311,7 +295,7 @@ class MyBot(BaseAgent):
 
         if self.unforseenAction():
             self.maneuver_start = self.packet.game_info.seconds_elapsed
-            self.target_index = 0
+            self.target_index = 1
             #self.target_index = learningAgent.getAction(packet)
 
             self.createNewManeuver()
@@ -326,10 +310,25 @@ class MyBot(BaseAgent):
 
         controls = SimpleControllerState()
 
+        # attack
         if self.target_index == 0:
-            # attack
             target_location_info = self.shootBallTowardsTarget(
                 Vec3(800, 5213, 321.3875), Vec3(-800, 5213, 321.3875))
+            path = self.computePossibleArcLineArcDrivePaths(
+                target_location_info[0], target_location_info[1])
+            self.renderArcLineArcPath(path)
+            self.path_length = path.length
+            controls.steer = self.getArcLineArcControllerState(path)
+            controls = self.getThrottle(controls)
+
+            if(Vec3.length(self.car_location - self.ball_location) < 200):
+                return self.begin_front_flip(self.packet)
+        #defend
+        elif self.target_index == 1:
+            target_location_info = self.shootBallTowardsTarget(
+                Vec3(10000, self.ball_location.y - 2000, self.ball_location.z),
+                Vec3(-10000, self.ball_location.y - 2000, self.ball_location.z),
+                )
             path = self.computePossibleArcLineArcDrivePaths(
                 target_location_info[0], target_location_info[1])
             self.renderArcLineArcPath(path)
@@ -351,16 +350,16 @@ class MyBot(BaseAgent):
         speed = self.car_forward_velocity
         diff = needed_speed - speed
 
-        throttle = diff/1000
+        throttle = diff/1000 * 1.5
 
         if(throttle > 1):
             throttle = 1
 
         if(throttle < -1):
             throttle = -1
-        #throttle = 1
         controls.throttle = throttle
 
+        print(throttle)
 
         return controls
 
@@ -416,10 +415,10 @@ class MyBot(BaseAgent):
 
         vn = d / (t0 + 0.0001)
 
-        if(vn > 1500):
+        """if(vn > 1500):
             return True
-
-
+        if(vn < 200):
+            return True"""
 
         return False
 
