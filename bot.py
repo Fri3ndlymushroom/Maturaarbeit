@@ -1,6 +1,9 @@
 import random
 import numpy as np
-from collections import deque
+import math
+import tensorflow as tf
+
+
 from rlbot.agents.base_agent import BaseAgent, SimpleControllerState
 from rlbot.messages.flat.QuickChatSelection import QuickChatSelection
 from rlbot.utils.structures.game_data_struct import GameTickPacket
@@ -11,239 +14,7 @@ from util.drive import steer_toward_target
 from util.sequence import Sequence, ControlStep
 from util.vec import Vec3
 from util.orientation import Orientation
-import math
-
-
-from tkinter import Tk, Text, END
-#root = Tk()
-#text = Text(root)
-# text.pack()
-
-# debugLog("start")
-
-import sys
-#debugLog( "python: " + sys.version)
-import tensorflow as tf
-#debugLog( "tensorflow: " + tf.__version__)
-
-#debugLog( "keras: " + tf.keras.__version__)
-
-import time
-
-import logging
-tf.get_logger().setLevel(3)
-
-
-class ModelAgent():
-    def __init__(self):
-        # mit wie vielen der letzten actions das hauptmodel gefitted werden soll
-        self.REPLAY_MEMORY_SIZE = 50000
-        self.MIN_REPLAY_MEMORY_SIZE = 1000
-        self.UPDATE_TARGET_EVERY = 5
-        self.MODEL_NAME = "model"
-        self.MINIBATCH_SIZE = 64
-        self.DISCOUNT = 0.99
-        self.ACTION_SPACE_SIZE = 4
-
-        # es gibt zwei models weil das model sonst für jeden schritt overfitted. Desswegen wird das eine immer nur alle x schritte an das andere angepasst. Man predicted aber immer am hauptmodel
-        # hauptmodel
-        self.model = self.create_model()
-
-        # target model dass die gleichen weights hat # das ist das model dass alle x schritte gefitted wird
-        self.target_model = self.create_model()
-
-        self.target_model.set_weights(self.model.get_weights())
-
-        # erstellt eine liste für die letzten x inputs um overfitting weiter zu verhindern
-        self.replay_memory = deque(maxlen=self.REPLAY_MEMORY_SIZE)
-
-        # zählt wann das target network mit dem haupt network synchronisieren soll
-        self.target_update_counter = 0
-
-    def create_model(self):
-        model = tf.keras.models.Sequential()
-
-        # inputs sind: xDelta, yDelta, zDelta, car speed
-        model.add(tf.keras.layers.Dense(
-            9, input_shape=(9,), activation="relu"))
-        model.add(tf.keras.layers.Dense(128, activation="relu"))
-        model.add(tf.keras.layers.Dense(128, activation="relu"))
-        model.add(tf.keras.layers.Dense(128, activation="relu"))
-        model.add(tf.keras.layers.Dense(128, activation="relu"))
-        model.add(tf.keras.layers.Dense(128, activation="relu"))
-        model.add(tf.keras.layers.Dense(128, activation="relu"))
-        model.add(tf.keras.layers.Dense(128, activation="relu"))
-        model.add(tf.keras.layers.Dense(128, activation="relu"))
-        # anzahl möglicher output controlls
-        model.add(tf.keras.layers.Dense(
-            self.ACTION_SPACE_SIZE, activation="linear"))
-        model.compile(loss="mse", optimizer=tf.keras.optimizers.Adam(
-            lr=0.001), metrics=['accuracy'])
-        return model
-
-    # updated das reply mermory
-
-    def update_replay_memory(self, transition):
-        self.replay_memory.append(transition)
-
-    # q values berechnen
-    def get_qs(self, state):
-        qs = self.model.predict(
-            np.array(state).reshape(-1, *np.array(state).shape)/1)[0]
-        return qs
-
-    # jeder step soll das netzwerk trainiert werdenfg
-    def train(self, terminal_state, step):
-
-        # soll abbrechen wenn das replay memory zu klein ist
-        if len(self.replay_memory) < self.MIN_REPLAY_MEMORY_SIZE:
-            return
-
-        # batch mit der grösse MINIBATCH_SIZE vom replay memory
-        minibatch = random.sample(self.replay_memory, self.MINIBATCH_SIZE)
-
-        # get q valuess
-        current_states = np.array([transition[0]
-                                  for transition in minibatch])/1
-        current_qs_list = self.model.predict(current_states)
-
-        # zukünftige q values
-        new_current_states = np.array(
-            [transition[3] for transition in minibatch])/1
-        future_qs_list = self.target_model.predict(new_current_states)
-
-        # update model
-        X = []
-        y = []
-
-        for index, (current_state, action, reward, new_current_state, done) in enumerate(minibatch):
-            if not done:
-                max_future_q = np.max(future_qs_list[index])
-                new_q = reward + self.DISCOUNT * max_future_q
-            else:
-                new_q = reward
-
-            current_qs = current_qs_list[index]
-            current_qs[action] = new_q
-
-            X.append(current_state)
-            y.append(current_qs)
-
-        self.model.fit(np.array(X)/1, np.array(y), batch_size=self.MINIBATCH_SIZE,
-                       verbose=0, shuffle=False, callbacks=[] if terminal_state else None)
-        if terminal_state:
-            self.target_update_counter += 1
-
-        if self.target_update_counter > self.UPDATE_TARGET_EVERY:
-            self.target_model.set_weights(self.model.get_weights())
-            self.target_update_counter = 0
-
-
-agent = ModelAgent()
-
-
-class QLearningAgent:
-    def __init__(self):
-        self.step = 1
-        self.total_step = 1
-        self.STEPS_PER_EPISODE = 200
-        self.done_accuracy = []
-        self.last_distance = 0
-        self.done = False
-
-        # epsilon
-        self.epsilon = 1
-        self.EPSILON_DECAY = 0.99975
-        self.MIN_EPSILON = 0.001
-
-        # action space size
-        self.ACTION_SPACE_SIZE = 4
-        # attack
-        # defend
-        # get boost
-
-        # penaltys
-        self.MOVE_PENALTY = 1
-        self.DISTANCE_PENALTY_MULTIPLICATOR = 5
-
-    def getAction(self, packet):
-
-        packet = packet
-        self_car = packet.game_cars[0]
-        enemy_car = packet.game_cars[1]
-        self_car_location = Vec3(self_car.physics.location)
-        enemy_car_location = Vec3(enemy_car.physics.location)
-        ball_location = Vec3(packet.game_ball.physics.location)
-
-        # Mit dem Score im Spiel wird ermittelt wie gut der bot ist.
-        #  Wenn also zb. 3/7 steht ist die scoreRatio -4 und somit kann der bot gut trainiert werdne
-        scoreRatio = packet.teams[0].score - packet.teams[1].score
-
-        # wenn self.step == STEPS_PER_EPISODE ist sollen variabeln zurückgesetz werden
-        self.manageEpisodes()
-
-        self.state_now = [
-            self_car_location.x, self_car_location.y, self_car_location.z,
-            enemy_car_location.x, enemy_car_location.y, enemy_car_location.z,
-            ball_location.x, ball_location.y, ball_location.z
-        ]
-
-        # den letzten schritt beurteilen
-        if self.should_train:
-
-            self.step_reward -= self.MOVE_PENALTY
-
-            self.step_reward += scoreRatio * 1000
-            self.episode_reward += self.step_reward
-
-            if self.step == self.STEPS_PER_EPISODE-1:
-                self.done = True
-
-            agent.update_replay_memory(
-                (self.old_state, self.action, self.step_reward, self.state_now, self.done))
-            agent.train(self.done, self.step)
-
-        # neuen schritt machen
-        if np.random.random() > self.epsilon:
-            # Get action from Q table
-            self.action = np.argmax(agent.get_qs(self.state_now))
-        else:
-            # Get random action
-            self.action = np.random.randint(0, self.ACTION_SPACE_SIZE)
-
-        if self.epsilon > self.MIN_EPSILON:
-            self.epsilon *= self.EPSILON_DECAY
-            self.epsilon = max(self.MIN_EPSILON, self.epsilon)
-
-        #self.action = np.argmax(agent.get_qs(self.state_now))
-        self.old_state = self.state_now
-
-        self.step += 1
-        self.total_step += 1
-
-        # if (self.total_step % 200 == 0):
-        # step
-
-        return self.action
-
-    def manageEpisodes(self):
-        if self.step == self.STEPS_PER_EPISODE or self.done:
-            self.step = 1
-
-        if self.step == 1:
-            self.episode_reward = 0
-            self.done = False
-
-            # verhindert, dass beim ersten schritt trainiert wird
-            self.should_train = False
-        else:
-            self.should_train = True
-
-        self.step_reward = 0
-
-
-learningAgent = QLearningAgent()
-
+from nn import learningAgent
 
 class MyBot(BaseAgent):
 
@@ -293,29 +64,44 @@ class MyBot(BaseAgent):
 
         # decision
 
-        if self.unforseenAction():
-            self.maneuver_start = self.packet.game_info.seconds_elapsed
-            self.target_index = 1
-            #self.target_index = learningAgent.getAction(packet)
-
-            self.createNewManeuver()
-
-        # execution & controls
+        # if self.unforseenAction():
 
         # if a sequence is running further execute it
         if self.active_sequence is not None and not self.active_sequence.done:
             controls = self.active_sequence.tick(packet)
             if controls is not None:
                 return controls
+       
+        """
+        if(self.unforseenAction()):
+            #new_target_index = learningAgent.getAction(packet)
+            new_target_index = 0
+            self.target_index = new_target_index
+            self.maneuver_start = self.packet.game_info.seconds_elapsed
+            self.createNewManeuver()
+        """ 
+
+        if(self.frame % 100 == 0):
+            new_target_index = learningAgent.getAction(packet)
+            #new_target_index = 0
+            self.target_index = new_target_index
+            self.maneuver_start = self.packet.game_info.seconds_elapsed
+            self.createNewManeuver()
+
+
+        # execution & controls
 
         controls = SimpleControllerState()
 
         # attack
         if self.target_index == 0:
+            self.renderText("attack")
             target_location_info = self.shootBallTowardsTarget(
                 Vec3(800, 5213, 321.3875), Vec3(-800, 5213, 321.3875))
             path = self.computePossibleArcLineArcDrivePaths(
                 target_location_info[0], target_location_info[1])
+
+            if(path.name == ""): return
             self.renderArcLineArcPath(path)
             self.path_length = path.length
             controls.steer = self.getArcLineArcControllerState(path)
@@ -323,12 +109,13 @@ class MyBot(BaseAgent):
 
             if(Vec3.length(self.car_location - self.ball_location) < 200):
                 return self.begin_front_flip(self.packet)
-        #defend
+        # defend
         elif self.target_index == 1:
+            self.renderText("defend")
             target_location_info = self.shootBallTowardsTarget(
                 Vec3(10000, self.ball_location.y - 2000, self.ball_location.z),
                 Vec3(-10000, self.ball_location.y - 2000, self.ball_location.z),
-                )
+            )
             path = self.computePossibleArcLineArcDrivePaths(
                 target_location_info[0], target_location_info[1])
             self.renderArcLineArcPath(path)
@@ -357,10 +144,8 @@ class MyBot(BaseAgent):
 
         if(throttle < -1):
             throttle = -1
+        throttle = 1
         controls.throttle = throttle
-
-        print(throttle)
-
         return controls
 
     def createNewManeuver(self):
@@ -415,10 +200,6 @@ class MyBot(BaseAgent):
 
         vn = d / (t0 + 0.0001)
 
-        """if(vn > 1500):
-            return True
-        if(vn < 200):
-            return True"""
 
         return False
 
@@ -609,6 +390,11 @@ class MyBot(BaseAgent):
                 best_path.c2_length = c2_arc_length
 
         #self.renderer.draw_polyline_3d([best_path.start, best_path.tangent_start, best_path.tangent_end, best_path.end], self.renderer.red())
+
+
+
+
+
         return(best_path)
 
     def getCrossTangents(self, C1, C2, car_location, target_direction, target_location):
