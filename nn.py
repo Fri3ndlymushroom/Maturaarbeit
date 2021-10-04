@@ -6,8 +6,8 @@ import tensorflow as tf
 from util.vec import Vec3
 
 
-
 tf.get_logger().setLevel(3)
+
 
 class ModelAgent():
     def __init__(self):
@@ -60,7 +60,6 @@ class ModelAgent():
         return self.model.predict(np.array(state).reshape(-1, *np.array(state).shape)/1)[0]
 
     def train(self, terminal_state, step):
-
 
         # if replay memory is to small do not train
         if len(self.replay_memory) < self.MIN_REPLAY_MEMORY_SIZE:
@@ -130,7 +129,7 @@ class QLearningAgent:
         self.MOVE_PENALTY = 1
         self.DISTANCE_PENALTY_MULTIPLICATOR = 5
 
-        self.scores = [0, 0]
+        self.reward_info = rewardInfo()
 
     def getAction(self, packet):
 
@@ -140,22 +139,15 @@ class QLearningAgent:
         enemy_car_location = Vec3(enemy_car.physics.location)
         ball_location = Vec3(packet.game_ball.physics.location)
 
-
         if self.step == self.STEPS_PER_EPISODE or self.done:
 
-            print("episode: ",self.episode," reward: ", self.episode_reward)
+            print("episode: ", self.episode, " reward: ", self.episode_reward)
 
             self.episode += 1
             self.step = 1
             self.episode_reward = 0
             self.done = False
-            self.scores = [packet.teams[0].score, packet.teams[1].score]
-        
-        print(self.step)
 
-        goals = [packet.teams[0].score - self.scores[0],
-                 packet.teams[1].score - self.scores[1]]
-        self.scores = [packet.teams[0].score, packet.teams[1].score]
 
         self.state_now = [
             self_car_location.x, self_car_location.y,
@@ -163,12 +155,36 @@ class QLearningAgent:
             ball_location.x, ball_location.y
         ]
 
+        score_info = self_car.score_info
+        # shots
+        self.reward_info.made_shots = score_info.shots - self.reward_info.shots
+        self.reward_info.shots = score_info.shots
+        # saves
+        self.reward_info.made_saves = score_info.saves - self.reward_info.saves
+        self.reward_info.saves = score_info.saves
+        # goals
+        self.reward_info.made_goals = score_info.goals - self.reward_info.goals
+        self.reward_info.goals = score_info.goals
+        # got goals
+        self.reward_info.made_got_goals = packet.teams[1].score - \
+            self.reward_info.got_goals
+        self.reward_info.got_goals = packet.teams[1].score
+
         # den letzten schritt beurteilen
         if not self.step == 1:
-            self.step_reward = 0
-            self.step_reward -= self.MOVE_PENALTY
-            self.step_reward += goals[0] * 50
-            self.step_reward -= goals[1] * 100
+            #0.1*touch + shot + save + 10*goal - 10*concede - shot_on_own_goal
+
+            self.step_reward = self.reward_info.made_shots + 10 * self.reward_info.made_goals + \
+                self.reward_info.made_saves - 10 * self.reward_info.made_got_goals
+
+            print(
+                self.reward_info.made_shots,
+                self.reward_info.made_goals,
+                self.reward_info.made_saves,
+                self.reward_info.made_got_goals
+
+            )
+
             self.episode_reward += self.step_reward
 
             agent.update_replay_memory(
@@ -193,8 +209,24 @@ class QLearningAgent:
         self.step += 1
         self.total_step += 1
 
-
         return self.action
+
+
+class rewardInfo:
+    def __init__(self):
+        self.touches = 0
+        self.shots = 0
+        self.saves = 0
+        self.goals = 0
+        self.got_goals = 0
+        self.own_goals = 0
+
+        self.made_touches = 0
+        self.made_shots = 0
+        self.made_saves = 0
+        self.made_goals = 0
+        self.made_got_goals = 0
+        self.made_own_goals = 0
 
 
 learningAgent = QLearningAgent()

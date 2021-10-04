@@ -23,7 +23,7 @@ class MyBot(BaseAgent):
         self.active_sequence: Sequence = None
         self.boost_pad_tracker = BoostPadTracker()
 
-        self.frame = -1
+        self.frame = 0
         self.epsiolon = 1
 
         self.path_length = 0
@@ -72,21 +72,16 @@ class MyBot(BaseAgent):
             if controls is not None:
                 return controls
        
-        """
-        if(self.unforseenAction()):
-            #new_target_index = learningAgent.getAction(packet)
-            new_target_index = 0
-            self.target_index = new_target_index
-            self.maneuver_start = self.packet.game_info.seconds_elapsed
-            self.createNewManeuver()
-        """ 
 
-        if(self.frame % 100 == 0):
+        if(self.unforseenAction()):
+            print("refresh")
             new_target_index = learningAgent.getAction(packet)
             #new_target_index = 0
             self.target_index = new_target_index
             self.maneuver_start = self.packet.game_info.seconds_elapsed
             self.createNewManeuver()
+
+
 
 
         # execution & controls
@@ -144,7 +139,6 @@ class MyBot(BaseAgent):
 
         if(throttle < -1):
             throttle = -1
-        throttle = 1
         controls.throttle = throttle
         return controls
 
@@ -612,7 +606,6 @@ class MyBot(BaseAgent):
                         loc1, loc2, self.renderer.yellow())
 
     def predictBallLocation(self, time):
-
         if time > 60:
             time = 60
 
