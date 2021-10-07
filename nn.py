@@ -210,7 +210,7 @@ class QLearningAgent:
         self.step += 1
         self.total_step += 1
 
-        # addDatapoint([self.step_reward, self.epsilon])
+        addDatapoint([self.step_reward, self.epsilon])
 
         return self.action
 
@@ -237,26 +237,25 @@ learningAgent = QLearningAgent()
 
 y_norm = []
 y_plot = []
-
+plt.ion()
 
 def addDatapoint(data):
     global y_plot
     y_norm.append(data)
-    y_plot = np.array(y_norm).reshape(len(y_norm[0], len(y_norm)))
+    y_plot = np.array(y_norm).reshape(len(y_norm[0]), len(y_norm))
 
 
-    print("new data")
+    if(len(y_plot[0]) % 10 == 0):
+        getNewChart(y_plot)
 
 
 index = 0
+def getNewChart(data):
+    plt.cla()
+    plt.plot(y_norm)
+    plt.draw()
+    plt.pause(0.01)
 
 
-def animate(i):
-        plt.cla()
-        plt.plot(y_norm)
-
-
-
-plt.show()
 
 
