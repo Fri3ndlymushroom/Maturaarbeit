@@ -4,6 +4,8 @@ import numpy as np
 import math
 import tensorflow as tf
 from util.vec import Vec3
+import matplotlib.pyplot as plt
+from matplotlib.animation import FuncAnimation
 
 
 tf.get_logger().setLevel(3)
@@ -148,7 +150,6 @@ class QLearningAgent:
             self.episode_reward = 0
             self.done = False
 
-
         self.state_now = [
             self_car_location.x, self_car_location.y,
             enemy_car_location.x, enemy_car_location.y,
@@ -172,7 +173,7 @@ class QLearningAgent:
 
         # den letzten schritt beurteilen
         if not self.step == 1:
-            #0.1*touch + shot + save + 10*goal - 10*concede - shot_on_own_goal
+            # 0.1*touch + shot + save + 10*goal - 10*concede - shot_on_own_goal
 
             self.step_reward = self.reward_info.made_shots + 10 * self.reward_info.made_goals + \
                 self.reward_info.made_saves - 10 * self.reward_info.made_got_goals
@@ -203,11 +204,13 @@ class QLearningAgent:
             self.epsilon *= self.EPSILON_DECAY
             self.epsilon = max(self.MIN_EPSILON, self.epsilon)
 
-        #self.action = np.argmax(agent.get_qs(self.state_now))
+        # self.action = np.argmax(agent.get_qs(self.state_now))
         self.old_state = self.state_now
 
         self.step += 1
         self.total_step += 1
+
+        # addDatapoint([self.step_reward, self.epsilon])
 
         return self.action
 
@@ -230,3 +233,30 @@ class rewardInfo:
 
 
 learningAgent = QLearningAgent()
+
+
+y_norm = []
+y_plot = []
+
+
+def addDatapoint(data):
+    global y_plot
+    y_norm.append(data)
+    y_plot = np.array(y_norm).reshape(len(y_norm[0], len(y_norm)))
+
+
+    print("new data")
+
+
+index = 0
+
+
+def animate(i):
+        plt.cla()
+        plt.plot(y_norm)
+
+
+
+plt.show()
+
+

@@ -16,6 +16,7 @@ from util.vec import Vec3
 from util.orientation import Orientation
 from nn import learningAgent
 
+
 class MyBot(BaseAgent):
 
     def __init__(self, name, team, index):
@@ -113,6 +114,11 @@ class MyBot(BaseAgent):
             )
             path = self.computePossibleArcLineArcDrivePaths(
                 target_location_info[0], target_location_info[1])
+
+            if(not path): 
+                controls.throttle = 1
+                return(controls)
+            
             self.renderArcLineArcPath(path)
             self.path_length = path.length
             controls.steer = self.getArcLineArcControllerState(path)
@@ -829,3 +835,4 @@ class ArcLineArcPath:
         self.tangent_start = Vec3(0, 0, 0)
         self.tangent_end = Vec3(0, 0, 0)
         self.end = Vec3(0, 0, 0)
+
