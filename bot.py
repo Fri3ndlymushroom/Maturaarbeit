@@ -36,6 +36,7 @@ class MyBot(BaseAgent):
         self.last_time = None
 
         self.target_index = 0
+        self.target_location_info = []
 
         self.maneuver_time = 0  # time given for maneuver to execute
         self.maneuver_start = 0 # maneuver start time
@@ -54,21 +55,16 @@ class MyBot(BaseAgent):
         self.car_location = Vec3(self.my_car.physics.location)
         self.car_rotation = self.my_car.physics.rotation
         self.car_velocity = Vec3(self.my_car.physics.velocity)
-        self.car_forward_velocity = Vec3.dot(
-            self.car_velocity, Vec3.normalized(Orientation(self.car_rotation).forward))
+        self.car_forward_velocity = Vec3.dot(self.car_velocity, Vec3.normalized(Orientation(self.car_rotation).forward ))
         self.ball_location = Vec3(packet.game_ball.physics.location)
         self.ball_velocity = Vec3(packet.game_ball.physics.velocity)
         self.ball_rotation = packet.game_ball.physics.rotation
 
         self.frame += 1
 
+        # rendering
         self.chat()
-
         self.predictBallPath()
-
-        # decision
-
-        # if self.unforseenAction():
 
         # if a sequence is running further execute it
         if self.active_sequence is not None and not self.active_sequence.done:
@@ -76,13 +72,88 @@ class MyBot(BaseAgent):
             if controls is not None:
                 return controls
 
+
+        # decision
+        new_target = self.setObjective()
+        self.setTarget(new_target)
+        [target_location, target_direction]= self.target_location_info
+        path = self.setPath(target_location, target_direction)
+
+        # execution & controls
+        controls = SimpleControllerState()
+
+        # no possible path
+        if(path.name == ""):
+            controls.throttle = 1
+            return(controls)
         
+        self.renderArcLineArcPath(path)
+        self.path_length = path.length
+        controls.steer = self.getArcLineArcControllerState(path)
+        controls = self.getThrottle(controls)
+        if(Vec3.length(self.car_location - self.ball_location) < 200):
+            return self.begin_front_flip(self.packet)
 
+
+        self.renderer.end_rendering()
+        return controls
+
+
+    def setTarget(self, new_target):
+        if(new_target):
+            if self.target_index == 0:
+                self.renderText("attack")
+                target_location_info = self.shootBallTowardsTarget(Vec3(800, 5213, 321.3875), Vec3(-800, 5213, 321.3875))
+            elif self.target_index == 1:
+                self.renderText("defend")
+                target_location_info = self.shootBallTowardsTarget(
+                    Vec3(10000, self.ball_location.y - 2000, self.ball_location.z),
+                    Vec3(-10000, self.ball_location.y - 2000, self.ball_location.z),
+                )
+
+            self.target_location_info = target_location_info
+    
+    def setPath(self, target_location, target_direction):
+
+
+        self.renderer.draw_line_3d(Vec3(target_location.x, target_location.y, 0), Vec3(
+            target_location.x, target_location.y, target_location.z+100), self.renderer.red())
+        self.renderer.draw_line_3d(target_location, Vec3(
+            target_location.x, target_location.y+100, target_location.z), self.renderer.red())
+        self.renderer.draw_line_3d(target_location, Vec3(
+            target_location.x+100, target_location.y, target_location.z), self.renderer.red())
+
+        size = 7
+
+        self.renderer.draw_rect_3d(Vec3(
+            target_location.x, target_location.y, target_location.z), size, size, True, self.renderer.red())
+
+        self.renderer.draw_line_3d(
+            target_location, target_location + target_direction * 500, self.renderer.purple())
+
+
+
+
+
+
+        path = self.computePossibleArcLineArcDrivePaths(target_location, target_direction)
+        return path
+
+            
+
+
+
+
+
+    def setObjective(self):
+        # set target index if needed
         #if(self.unforseenAction()): temp
+        add_time_datapoint = None
+        if(not self.target_location_info == []):
+            add_time_datapoint = Vec3.length(self.target_location_info[0]-self.car_location)<100
 
-
-        if(self.path_length < 300 or self.unforseenAction()):
-            if(self.path_length < 300):
+        if(add_time_datapoint or self.unforseenAction()):
+            if(add_time_datapoint):
                 addDatapoint.add(self.since_maneuver_start)
             else:
                 addDatapoint.add(0)
@@ -91,53 +162,11 @@ class MyBot(BaseAgent):
             self.target_index = new_target_index
             self.maneuver_start = self.packet.game_info.seconds_elapsed
             self.createNewManeuver()
+            return True
+        else: return False
 
-        # execution & controls
 
-        controls = SimpleControllerState()
-
-        # attack
-        if self.target_index == 0:
-            self.renderText("attack")
-            target_location_info = self.shootBallTowardsTarget(
-                Vec3(800, 5213, 321.3875), Vec3(-800, 5213, 321.3875))
-            path = self.computePossibleArcLineArcDrivePaths(
-                target_location_info[0], target_location_info[1])
-
-            
-            if(path.name == ""):
-                controls.throttle = 1
-                return(controls)
-            self.renderArcLineArcPath(path)
-            self.path_length = path.length
-            controls.steer = self.getArcLineArcControllerState(path)
-            controls = self.getThrottle(controls)
-            if(Vec3.length(self.car_location - self.ball_location) < 200):
-                return self.begin_front_flip(self.packet)
-        # defend
-        elif self.target_index == 1:
-            self.renderText("defend")
-            target_location_info = self.shootBallTowardsTarget(
-                Vec3(10000, self.ball_location.y - 2000, self.ball_location.z),
-                Vec3(-10000, self.ball_location.y - 2000, self.ball_location.z),
-            )
-            path = self.computePossibleArcLineArcDrivePaths(
-                target_location_info[0], target_location_info[1])
-
-            if(path.name == ""):
-                controls.throttle = 1
-                return(controls)
-
-            self.renderArcLineArcPath(path)
-            self.path_length = path.length
-            controls.steer = self.getArcLineArcControllerState(path)
-            controls = self.getThrottle(controls)
-
-            #if(Vec3.length(self.car_location - self.ball_location) < 200):
-                #return self.begin_front_flip(self.packet) temp
-        
-        self.renderer.end_rendering()
-        return controls
+    
 
     def getThrottle(self, controls):
 
@@ -256,20 +285,6 @@ class MyBot(BaseAgent):
         # offset would be 92.75 but is better with a greater value for arc line arc
         offset_ball_location = ball_location - direction_of_approach * 100
 
-        self.renderer.draw_line_3d(Vec3(ball_location.x, ball_location.y, 0), Vec3(
-            ball_location.x, ball_location.y, ball_location.z+100), self.renderer.red())
-        self.renderer.draw_line_3d(ball_location, Vec3(
-            ball_location.x, ball_location.y+100, ball_location.z), self.renderer.red())
-        self.renderer.draw_line_3d(ball_location, Vec3(
-            ball_location.x+100, ball_location.y, ball_location.z), self.renderer.red())
-
-        size = 7
-
-        self.renderer.draw_rect_3d(Vec3(
-            ball_location.x, ball_location.y, ball_location.z), size, size, True, self.renderer.red())
-
-        self.renderer.draw_line_3d(
-            ball_location, ball_location + direction_of_approach * 500, self.renderer.purple())
 
         return [offset_ball_location, direction_of_approach]
 
