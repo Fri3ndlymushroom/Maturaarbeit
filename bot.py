@@ -2,6 +2,7 @@ import random
 import numpy as np
 import math
 import tensorflow as tf
+from collections import deque
 
 
 from rlbot.agents.base_agent import BaseAgent, SimpleControllerState
@@ -15,6 +16,7 @@ from util.sequence import Sequence, ControlStep
 from util.vec import Vec3
 from util.orientation import Orientation
 from nn import learningAgent
+from plp import addDatapoint
 
 
 class MyBot(BaseAgent):
@@ -35,9 +37,9 @@ class MyBot(BaseAgent):
 
         self.target_index = 0
 
-        self.maneuver_time = 0
-        self.maneuver_start = 0
-        self.since_maneuver_start = 0
+        self.maneuver_time = 0  # time given for maneuver to execute
+        self.maneuver_start = 0 # maneuver start time
+        self.since_maneuver_start = 0 # passed time
 
         self.min_rad = 500
 
@@ -55,6 +57,7 @@ class MyBot(BaseAgent):
         self.car_forward_velocity = Vec3.dot(
             self.car_velocity, Vec3.normalized(Orientation(self.car_rotation).forward))
         self.ball_location = Vec3(packet.game_ball.physics.location)
+        self.ball_velocity = Vec3(packet.game_ball.physics.velocity)
         self.ball_rotation = packet.game_ball.physics.rotation
 
         self.frame += 1
@@ -72,18 +75,22 @@ class MyBot(BaseAgent):
             controls = self.active_sequence.tick(packet)
             if controls is not None:
                 return controls
-       
 
-        if(self.unforseenAction()):
-            print("refresh")
-            new_target_index = learningAgent.getAction(packet)
-            #new_target_index = 0
+        
+
+        #if(self.unforseenAction()): temp
+
+
+        if(self.path_length < 300 or self.unforseenAction()):
+            if(self.path_length < 300):
+                addDatapoint.add(self.since_maneuver_start)
+            else:
+                addDatapoint.add(0)
+            #new_target_index = learningAgent.getAction(packet)
+            new_target_index = 1
             self.target_index = new_target_index
             self.maneuver_start = self.packet.game_info.seconds_elapsed
             self.createNewManeuver()
-
-
-
 
         # execution & controls
 
@@ -97,12 +104,14 @@ class MyBot(BaseAgent):
             path = self.computePossibleArcLineArcDrivePaths(
                 target_location_info[0], target_location_info[1])
 
-            if(path.name == ""): return
+            
+            if(path.name == ""):
+                controls.throttle = 1
+                return(controls)
             self.renderArcLineArcPath(path)
             self.path_length = path.length
             controls.steer = self.getArcLineArcControllerState(path)
             controls = self.getThrottle(controls)
-
             if(Vec3.length(self.car_location - self.ball_location) < 200):
                 return self.begin_front_flip(self.packet)
         # defend
@@ -115,18 +124,18 @@ class MyBot(BaseAgent):
             path = self.computePossibleArcLineArcDrivePaths(
                 target_location_info[0], target_location_info[1])
 
-            if(not path): 
+            if(path.name == ""):
                 controls.throttle = 1
                 return(controls)
-            
+
             self.renderArcLineArcPath(path)
             self.path_length = path.length
             controls.steer = self.getArcLineArcControllerState(path)
             controls = self.getThrottle(controls)
 
-            if(Vec3.length(self.car_location - self.ball_location) < 200):
-                return self.begin_front_flip(self.packet)
-
+            #if(Vec3.length(self.car_location - self.ball_location) < 200):
+                #return self.begin_front_flip(self.packet) temp
+        
         self.renderer.end_rendering()
         return controls
 
@@ -145,6 +154,7 @@ class MyBot(BaseAgent):
 
         if(throttle < -1):
             throttle = -1
+        throttle = 1 #temp
         controls.throttle = throttle
         return controls
 
@@ -165,6 +175,22 @@ class MyBot(BaseAgent):
         if(t > 60):
             t = 60
 
+
+
+
+
+        cvx = self.car_velocity.x
+        cvy = self.car_velocity.y
+        bvx = self.ball_velocity.x
+        bvy = self.ball_velocity.y
+        d = Vec3.length(self.car_location - self.ball_location)
+
+
+        addDatapoint.add([
+            cvx, cvy, bvx, bvy, d
+        ])
+
+        t = 60 # temp
         self.maneuver_time = t
 
     #==============================|==============================#
@@ -172,6 +198,10 @@ class MyBot(BaseAgent):
     #==============================|==============================#
 
     def unforseenAction(self):
+
+
+
+
         if self.last_prediction == None or self.since_maneuver_start > self.maneuver_time:
             self.last_prediction = self.get_ball_prediction_struct().slices
             self.last_time = self.packet.game_info.seconds_elapsed
@@ -199,7 +229,6 @@ class MyBot(BaseAgent):
         d = self.path_length
 
         vn = d / (t0 + 0.0001)
-
 
         return False
 
@@ -390,10 +419,6 @@ class MyBot(BaseAgent):
                 best_path.c2_length = c2_arc_length
 
         #self.renderer.draw_polyline_3d([best_path.start, best_path.tangent_start, best_path.tangent_end, best_path.end], self.renderer.red())
-
-
-
-
 
         return(best_path)
 
@@ -835,4 +860,3 @@ class ArcLineArcPath:
         self.tangent_start = Vec3(0, 0, 0)
         self.tangent_end = Vec3(0, 0, 0)
         self.end = Vec3(0, 0, 0)
-
