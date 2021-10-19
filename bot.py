@@ -19,28 +19,58 @@ from nn import learningAgent
 from plp import addDatapoint
 
 
-class MyBot(BaseAgent):
 
+class MyBot(BaseAgent):
     def __init__(self, name, team, index):
         super().__init__(name, team, index)
         self.active_sequence: Sequence = None
         self.boost_pad_tracker = BoostPadTracker()
-
+        
+        # General
         self.frame = 0
-        self.epsiolon = 1
+        self.packet = None
 
-        self.path_length = 0
+
+
+
+        # Game Info
         self.goals = [0, 0]
+
+        # Field Info
+        self.packet = None
+        self.my_car = None
+        self.car_location = None
+        self.car_rotation = None
+        self.car_velocity = None
+        self.car_forward_velocity = None
+        self.ball_location = None
+        self.ball_velocity = None
+        self.ball_rotation = None
+
+
+        # Objective
+        self.target_index = 0
+
+        # Target
+        self.target_location_info = []
+
+        # Path
+        self.path_length = 0
+
+
+
+
+        # Tracked
+        self.maneuver_time = 0  # time given for maneuver to execute
+        self.maneuver_start = 0 # maneuver start time
+        self.since_maneuver_start = 0 # passed time
+
+
 
         self.last_prediction = None
         self.last_time = None
 
-        self.target_index = 0
-        self.target_location_info = []
 
-        self.maneuver_time = 0  # time given for maneuver to execute
-        self.maneuver_start = 0 # maneuver start time
-        self.since_maneuver_start = 0 # passed time
 
         self.min_rad = 500
 
@@ -72,16 +102,17 @@ class MyBot(BaseAgent):
             if controls is not None:
                 return controls
 
+        # Track
+        self.trackGame()
 
         # decision
-        new_objective = self.setObjective()
-
-        self.since_maneuver_start = -1 * (self.maneuver_start*10 - self.packet.game_info.seconds_elapsed*10)
+        got_new_objective = self.setObjective()
 
 
 
-        if(new_objective):
+        if(got_new_objective):
             self.setTarget()
+        
         [target_location, target_direction]= self.target_location_info
         path = self.setPath(target_location, target_direction)
 
@@ -102,8 +133,20 @@ class MyBot(BaseAgent):
 
 
         self.renderer.end_rendering()
+
+
+
+
+
+
+
+
+
         return controls
 
+    def trackGame(self):
+        # Time
+        self.since_maneuver_start = -1 * (self.maneuver_start*10 - self.packet.game_info.seconds_elapsed*10)
 
     def setTarget(self):
 
@@ -183,9 +226,9 @@ class MyBot(BaseAgent):
         if(add_time_datapoint or self.unforseenAction()):
             if self.frame > 2:
                 if(add_time_datapoint):
-                    addDatapoint.add(self.since_maneuver_start)
+                    addDatapoint.addY(self.since_maneuver_start)
                 else:
-                    addDatapoint.add(0)
+                    addDatapoint.addY(0)
             #new_target_index = learningAgent.getAction(packet)
             new_target_index = 100
             self.target_index = new_target_index
@@ -246,7 +289,7 @@ class MyBot(BaseAgent):
             dy = self.target_location_info[1].y
 
 
-            addDatapoint.add([
+            addDatapoint.addX([
                 cvx, cvy, bvx, bvy, d, dx, dy
             ])
 
