@@ -39,21 +39,19 @@ class addDatapoint:
 
 
     def add(self, value):
-        if not self.i == 0:
 
-            if(len(self.pack) == 1):
-                self.pack.append(value)
-                if(value > 1):
-                    f = open("plpx/plpX.txt", "a")
-                    f.write(str(self.pack[0]) + "\n")
-                    f.close()
-                    f = open("plpx/plpY.txt", "a")
-                    f.write(str(self.pack[1]) + "\n")
-                    f.close()
-                    print(self.pack[1])
-                self.pack = []
-            else:
-                self.pack.append(value)
+        if(len(self.pack) == 1):
+            self.pack.append(value)
+            if(value > 1):
+                f = open("plpdata/plpX.txt", "a")
+                f.write(str(self.pack[0]) + "\n")
+                f.close()
+                f = open("plpdata/plpY.txt", "a")
+                f.write(str(self.pack[1]) + "\n")
+                f.close()
+            self.pack = []
+        else:
+            self.pack.append(value)
 
 
         self.i += 1

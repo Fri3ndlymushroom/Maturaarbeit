@@ -74,8 +74,14 @@ class MyBot(BaseAgent):
 
 
         # decision
-        new_target = self.setObjective()
-        self.setTarget(new_target)
+        new_objective = self.setObjective()
+
+        self.since_maneuver_start = -1 * (self.maneuver_start*10 - self.packet.game_info.seconds_elapsed*10)
+
+
+
+        if(new_objective):
+            self.setTarget()
         [target_location, target_direction]= self.target_location_info
         path = self.setPath(target_location, target_direction)
 
@@ -99,20 +105,41 @@ class MyBot(BaseAgent):
         return controls
 
 
-    def setTarget(self, new_target):
-        if(new_target):
-            if self.target_index == 0:
-                self.renderText("attack")
-                target_location_info = self.shootBallTowardsTarget(Vec3(800, 5213, 321.3875), Vec3(-800, 5213, 321.3875))
-            elif self.target_index == 1:
-                self.renderText("defend")
-                target_location_info = self.shootBallTowardsTarget(
-                    Vec3(10000, self.ball_location.y - 2000, self.ball_location.z),
-                    Vec3(-10000, self.ball_location.y - 2000, self.ball_location.z),
-                )
+    def setTarget(self):
 
-            self.target_location_info = target_location_info
-    
+        target = self.target_index
+        target_location_info = None
+
+        if target == 0:
+            self.renderText("attack")
+            target_location_info = self.shootBallTowardsTarget(Vec3(800, 5213, 321.3875), Vec3(-800, 5213, 321.3875))
+        elif target == 1:
+            self.renderText("defend")
+            target_location_info = self.shootBallTowardsTarget(
+                Vec3(10000, self.ball_location.y - 2000, self.ball_location.z),
+                Vec3(-10000, self.ball_location.y - 2000, self.ball_location.z),
+            )
+        elif target == 100:            
+            self.renderText("random")
+
+            height = 5120 - 1152
+            width = 4096 - 1152
+            
+            lx = random.randint(-width, width)
+            ly = random.randint(-height, height)
+            location = Vec3(lx, ly, 0)
+            dx = random.randint(-100, 100)
+            dy = random.randint(-100, 100)
+            dz = random.randint(-100, 100)
+            direction = Vec3.normalized(Vec3(dx, dy, 0.01))
+
+
+            
+
+            target_location_info = [location, direction]
+
+        self.target_location_info = target_location_info
+
     def setPath(self, target_location, target_direction):
 
 
@@ -148,17 +175,19 @@ class MyBot(BaseAgent):
     def setObjective(self):
         # set target index if needed
         #if(self.unforseenAction()): temp
-        add_time_datapoint = None
+        add_time_datapoint = True
         if(not self.target_location_info == []):
-            add_time_datapoint = Vec3.length(self.target_location_info[0]-self.car_location)<100
+            add_time_datapoint = Vec3.length(self.target_location_info[0]-self.car_location)<200
+            
 
         if(add_time_datapoint or self.unforseenAction()):
-            if(add_time_datapoint):
-                addDatapoint.add(self.since_maneuver_start)
-            else:
-                addDatapoint.add(0)
+            if self.frame > 2:
+                if(add_time_datapoint):
+                    addDatapoint.add(self.since_maneuver_start)
+                else:
+                    addDatapoint.add(0)
             #new_target_index = learningAgent.getAction(packet)
-            new_target_index = 1
+            new_target_index = 100
             self.target_index = new_target_index
             self.maneuver_start = self.packet.game_info.seconds_elapsed
             self.createNewManeuver()
@@ -207,17 +236,19 @@ class MyBot(BaseAgent):
 
 
 
+        if self.frame > 1:
+            cvx = self.car_velocity.x
+            cvy = self.car_velocity.y
+            bvx = self.ball_velocity.x
+            bvy = self.ball_velocity.y
+            d = Vec3.length(self.car_location - self.ball_location)
+            dx = self.target_location_info[1].x
+            dy = self.target_location_info[1].y
 
-        cvx = self.car_velocity.x
-        cvy = self.car_velocity.y
-        bvx = self.ball_velocity.x
-        bvy = self.ball_velocity.y
-        d = Vec3.length(self.car_location - self.ball_location)
 
-
-        addDatapoint.add([
-            cvx, cvy, bvx, bvy, d
-        ])
+            addDatapoint.add([
+                cvx, cvy, bvx, bvy, d, dx, dy
+            ])
 
         t = 60 # temp
         self.maneuver_time = t
@@ -267,8 +298,7 @@ class MyBot(BaseAgent):
 
     def shootBallTowardsTarget(self, left_most_target, right_most_target):
 
-        self.since_maneuver_start = -1 * \
-            (self.maneuver_start*10 - self.packet.game_info.seconds_elapsed*10)
+
 
         ball_location = self.predictBallLocation(
             self.maneuver_time - self.since_maneuver_start)
