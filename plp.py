@@ -48,10 +48,10 @@ class addDatapoint:
 
     def save(self):
         if(self.pack[1] > 1):
-            f = open("plpdata/plpX.txt", "a")
+            f = open("src/plp/data/training_raw/X.txt", "a")
             f.write(str(self.pack[0]) + "\n")
             f.close()
-            f = open("plpdata/plpY.txt", "a")
+            f = open("src/plp/data/training_raw/y.txt", "a")
             f.write(str(self.pack[1]) + "\n")
             f.close()
         self.pack = []
