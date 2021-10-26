@@ -21,7 +21,7 @@ class data:
         y_test = X[train_amount:]
 
 
-        return [[X_train, y_train], [X_test, y_test]]
+        return [[np.array(X_train), np.array(y_train)], [np.array(X_test), np.array(y_test)]]
 
     def round_sig(self,x, sig=5):
         if(x == 0): return 0
