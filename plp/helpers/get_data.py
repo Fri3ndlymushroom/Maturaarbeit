@@ -9,16 +9,16 @@ class data:
         X = self.getX()
         y = self.getY()
 
-        X = self.roundX(X)
-        y = self.roundY(y)
+        X = self.normX(X)
+        y = self.normY(y)
 
         length = len(X)
         train_amount = length - 10 
 
         X_train = X[:train_amount]
         X_test = X[train_amount:]
-        y_train = X[:train_amount]
-        y_test = X[train_amount:]
+        y_train = y[:train_amount]
+        y_test = y[train_amount:]
 
 
         return [[np.array(X_train), np.array(y_train)], [np.array(X_test), np.array(y_test)]]
@@ -27,19 +27,31 @@ class data:
         if(x == 0): return 0
         return round(x, sig-int(floor(log10(abs(x))))-1)
 
-    def roundX(self,X):
+    def normX(self,X):
         newX = []
-        for vals in X:
-            newVals = []
-            for val in vals:
-                newVals.append(self.round_sig(val))
-            newX.append(newVals)
+
+        for val in X:
+            newX.append([
+                val[0] / 3000,
+                val[1] / 3000,
+                val[2] / 3000,
+                val[3] / 3000,
+                val[4] / 10000
+
+            ])
+
+
+        print(newX[0])
+
+
         return newX
 
-    def roundY(self,y):
+    def normY(self,y):
         newY = []
         for val in y:
-            newY.append(self.round_sig(val))
+            newVal = round(val)
+            if(newVal>60): newVal = 60
+            newY.append(newVal)
         return newY
 
     def getY(self):
@@ -62,3 +74,5 @@ class data:
 
 
 data = data()
+
+
