@@ -52,13 +52,10 @@ class MyBot(BaseAgent):
         self.target_index = 0
 
         # Target
-        self.target_location_info = []
+        self.target_location_info = [Vec3(0, 0, 0), Vec3(0, 0, 0)]
 
         # Path
         self.path_length = 0
-
-
-
 
         # Tracked
         self.maneuver_time = 0  # time given for maneuver to execute
@@ -122,6 +119,7 @@ class MyBot(BaseAgent):
         # no possible path
         if(path.name == ""):
             controls.throttle = 1
+            controls.steer = 1
             return(controls)
         
         self.renderArcLineArcPath(path)
@@ -133,14 +131,6 @@ class MyBot(BaseAgent):
 
 
         self.renderer.end_rendering()
-
-
-
-
-
-
-
-
 
         return controls
 
@@ -201,36 +191,16 @@ class MyBot(BaseAgent):
         self.renderer.draw_line_3d(
             target_location, target_location + target_direction * 500, self.renderer.purple())
 
-
-
-
-
-
         path = self.computePossibleArcLineArcDrivePaths(target_location, target_direction)
         return path
 
             
 
-
-
-
-
     def setObjective(self):
-        # set target index if needed
-        #if(self.unforseenAction()): temp
-        add_time_datapoint = True
-        if(not self.target_location_info == []):
-            add_time_datapoint = Vec3.length(self.target_location_info[0]-self.car_location)<200
-            
 
-        if(add_time_datapoint or self.unforseenAction()):
-            if self.frame > 2:
-                if(add_time_datapoint):
-                    addDatapoint.addY(self.since_maneuver_start)
-                else:
-                    addDatapoint.addY(0)
+        if(self.unforseenAction()):
             #new_target_index = learningAgent.getAction(packet)
-            new_target_index = 100
+            new_target_index = 0
             self.target_index = new_target_index
             self.maneuver_start = self.packet.game_info.seconds_elapsed
             self.createNewManeuver()
@@ -238,7 +208,6 @@ class MyBot(BaseAgent):
         else: return False
 
 
-    
 
     def getThrottle(self, controls):
 
@@ -262,38 +231,33 @@ class MyBot(BaseAgent):
     def createNewManeuver(self):
         v0 = self.car_forward_velocity
         t = 0
-        d = self.path_length
         max_speed = 1500
+
+        lb = self.ball_location
+        d = self.path_length
+
+
+        bvs = Vec3.length(self.ball_location - self.ball_velocity/10 - self.car_location) - Vec3.length(self.ball_location - self.car_location) 
 
         while d > 0:
             d -= v0 / 10
+
+            d += bvs
+
+
             v0 += self.getAcceleration(v0) / 100
 
             if(v0 > max_speed):
                 v0 = max_speed
             t += 1
 
+
+        print(t)
+
         if(t > 60):
             t = 60
 
 
-
-
-        if self.frame > 1:
-            cvx = self.car_velocity.x
-            cvy = self.car_velocity.y
-            bvx = self.ball_velocity.x
-            bvy = self.ball_velocity.y
-            d = Vec3.length(self.car_location - self.ball_location)
-            dx = self.target_location_info[1].x
-            dy = self.target_location_info[1].y
-
-
-            addDatapoint.addX([
-                cvx, cvy, bvx, bvy, d, dx, dy
-            ])
-
-        t = 60 # temp
         self.maneuver_time = t
 
     #==============================|==============================#
@@ -301,9 +265,6 @@ class MyBot(BaseAgent):
     #==============================|==============================#
 
     def unforseenAction(self):
-
-
-
 
         if self.last_prediction == None or self.since_maneuver_start > self.maneuver_time:
             self.last_prediction = self.get_ball_prediction_struct().slices
