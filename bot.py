@@ -212,6 +212,7 @@ class MyBot(BaseAgent):
     def getThrottle(self, controls):
 
         path_length = self.path_length
+
         time_left = (self.maneuver_time - self.since_maneuver_start) / 10
         needed_speed = path_length / (time_left + 0.1)
         speed = self.car_forward_velocity
@@ -224,7 +225,6 @@ class MyBot(BaseAgent):
 
         if(throttle < -1):
             throttle = -1
-        throttle = 1 #temp
         controls.throttle = throttle
         return controls
 
@@ -251,8 +251,6 @@ class MyBot(BaseAgent):
                 v0 = max_speed
             t += 1
 
-
-        print(t)
 
         if(t > 60):
             t = 60
