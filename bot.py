@@ -16,29 +16,17 @@ from util.sequence import Sequence, ControlStep
 from util.vec import Vec3
 from util.orientation import Orientation
 from nn import learningAgent
-from util.get_maneuver_time import ManeuverTime
-
-
-
 
 
 class MyBot(BaseAgent):
-
-
-
-
-
     def __init__(self, name, team, index):
         super().__init__(name, team, index)
         self.active_sequence: Sequence = None
         self.boost_pad_tracker = BoostPadTracker()
-        
+
         # General
         self.frame = 0
         self.packet = None
-
-
-
 
         # Game Info
         self.goals = [0, 0]
@@ -54,7 +42,6 @@ class MyBot(BaseAgent):
         self.ball_velocity = None
         self.ball_rotation = None
 
-
         # Objective
         self.target_index = 0
 
@@ -66,22 +53,17 @@ class MyBot(BaseAgent):
 
         # Tracked
         self.maneuver_time = 0  # time given for maneuver to execute
-        self.maneuver_start = 0 # maneuver start time
-        self.since_maneuver_start = 0 # passed time
-
-
+        self.maneuver_start = 0  # maneuver start time
+        self.since_maneuver_start = 0  # passed time
 
         self.last_prediction = None
         self.last_time = None
 
-
-
-        self.min_rad = 500
+        self.min_rad = 700
 
     def initialize_agent(self):
         # Set up information about the boost pads now that the game is active and the info is available
         self.boost_pad_tracker.initialize_boosts(self.get_field_info())
-
 
     def get_output(self, packet: GameTickPacket) -> SimpleControllerState:
         self.renderer.begin_rendering()
@@ -90,7 +72,8 @@ class MyBot(BaseAgent):
         self.car_location = Vec3(self.my_car.physics.location)
         self.car_rotation = self.my_car.physics.rotation
         self.car_velocity = Vec3(self.my_car.physics.velocity)
-        self.car_forward_velocity = Vec3.dot(self.car_velocity, Vec3.normalized(Orientation(self.car_rotation).forward ))
+        self.car_forward_velocity = Vec3.dot(
+            self.car_velocity, Vec3.normalized(Orientation(self.car_rotation).forward))
         self.ball_location = Vec3(packet.game_ball.physics.location)
         self.ball_velocity = Vec3(packet.game_ball.physics.velocity)
         self.ball_rotation = packet.game_ball.physics.rotation
@@ -113,12 +96,10 @@ class MyBot(BaseAgent):
         # decision
         got_new_objective = self.setObjective()
 
-
-
         if(got_new_objective):
             self.setTarget()
-        
-        [target_location, target_direction]= self.target_location_info
+
+        [target_location, target_direction] = self.target_location_info
         path = self.setPath(target_location, target_direction)
 
         # execution & controls
@@ -129,22 +110,40 @@ class MyBot(BaseAgent):
             controls.throttle = 1
             controls.steer = 1
             return(controls)
-        
+
         self.renderArcLineArcPath(path)
         self.path_length = path.length
         controls.steer = self.getArcLineArcControllerState(path)
         controls = self.getThrottle(controls)
-        if(Vec3.length(self.car_location - self.ball_location) < 200):
+        if(Vec3.length(self.car_location - self.ball_location) < 185):
             return self.begin_front_flip(self.packet)
 
-
         self.renderer.end_rendering()
+
+
+
+
+        # to remove ball from unpractical edges
+        if self.isNearWall():
+            controls.steer = steer_toward_target(self.my_car, self.ball_location)
+            controls.throttle = 1
+
+
+        
+
+
+
+
+
+
 
         return controls
 
     def trackGame(self):
         # Time
-        self.since_maneuver_start = -1 * (self.maneuver_start*10 - self.packet.game_info.seconds_elapsed*10)
+        self.since_maneuver_start = -1 * \
+            (self.maneuver_start*10 - self.packet.game_info.seconds_elapsed*10)
+
 
     def setTarget(self):
 
@@ -153,19 +152,20 @@ class MyBot(BaseAgent):
 
         if target == 0:
             self.renderText("attack")
-            target_location_info = self.shootBallTowardsTarget(Vec3(800, 5213, 321.3875), Vec3(-800, 5213, 321.3875))
+            target_location_info = self.shootBallTowardsTarget(
+                Vec3(800, 5213, 321.3875), Vec3(-800, 5213, 321.3875))
         elif target == 1:
             self.renderText("defend")
             target_location_info = self.shootBallTowardsTarget(
                 Vec3(10000, self.ball_location.y - 2000, self.ball_location.z),
                 Vec3(-10000, self.ball_location.y - 2000, self.ball_location.z),
             )
-        elif target == 100:            
+        elif target == 100:
             self.renderText("random")
 
             height = 5120 - 1152
             width = 4096 - 1152
-            
+
             lx = random.randint(-width, width)
             ly = random.randint(-height, height)
             location = Vec3(lx, ly, 0)
@@ -174,25 +174,21 @@ class MyBot(BaseAgent):
             dz = random.randint(-100, 100)
             direction = Vec3.normalized(Vec3(dx, dy, 0.01))
 
-
-            
-
             target_location_info = [location, direction]
 
-        elif target == 101:            
+        elif target == 101:
             self.renderText("random driection")
 
-
-            d1 = Vec3(random.randint(-100, 100), random.randint(-100, 100), random.randint(-100, 100))
-            d2 = Vec3(random.randint(-100, 100), random.randint(-100, 100), random.randint(-100, 100))
+            d1 = Vec3(random.randint(-100, 100),
+                      random.randint(-100, 100), random.randint(-100, 100))
+            d2 = Vec3(random.randint(-100, 100),
+                      random.randint(-100, 100), random.randint(-100, 100))
 
             target_location_info = self.shootBallTowardsTarget(d1, d2)
-        
 
         self.target_location_info = target_location_info
 
     def setPath(self, target_location, target_direction):
-
 
         self.renderer.draw_line_3d(Vec3(target_location.x, target_location.y, 0), Vec3(
             target_location.x, target_location.y, target_location.z+100), self.renderer.red())
@@ -209,17 +205,14 @@ class MyBot(BaseAgent):
         self.renderer.draw_line_3d(
             target_location, target_location + target_direction * 500, self.renderer.purple())
 
-        path = self.computePossibleArcLineArcDrivePaths(target_location, target_direction)
+        path = self.computePossibleArcLineArcDrivePaths(
+            target_location, target_direction)
         return path
-
-            
 
     def setObjective(self):
 
-        
-
-        if(self.unforseenAction() or Vec3.length(self.target_location_info[0] - self.car_location) < 200):
-            #new_target_index = learningAgent.getAction(packet)
+        if(self.unforseenAction()):
+            # new_target_index = learningAgent.getAction(packet)
             new_target_index = 0
             self.target_index = new_target_index
             self.maneuver_start = self.packet.game_info.seconds_elapsed
@@ -227,18 +220,17 @@ class MyBot(BaseAgent):
             return True
         else: return False
 
-
-
     def getThrottle(self, controls):
 
         path_length = self.path_length
+
 
         time_left = (self.maneuver_time - self.since_maneuver_start) / 10
         needed_speed = path_length / (time_left + 0.1)
         speed = self.car_forward_velocity
         diff = needed_speed - speed
 
-        throttle = diff/1000 * 1.5
+        throttle = diff/1000 * 1.7
 
         if(throttle > 1):
             throttle = 1
@@ -250,7 +242,34 @@ class MyBot(BaseAgent):
         return controls
 
     def createNewManeuver(self):
-        self.maneuver_time = ManeuverTime.get(self)
+
+        v0 = self.car_forward_velocity
+        t = 0
+        d = Vec3.length(self.car_location - self.ball_location) 
+
+        short_coefficient = 500
+        long_coefficient = 2
+
+        d = d * long_coefficient + short_coefficient / d
+
+
+        max_speed = 1500
+
+        while d > 0:
+            d -= v0 / 10
+            v0 += self.getAcceleration(v0) / 100
+
+            if(v0 > max_speed):
+                v0 = max_speed
+            t += 1
+
+        t = t * 2
+
+        if(t > 60):
+            t = 60
+
+
+        self.maneuver_time = t
 
 
 
@@ -267,7 +286,9 @@ class MyBot(BaseAgent):
 
         time = self.packet.game_info.seconds_elapsed
         delta_time = round(359/60*(time - self.last_time) * 10)
+
         if(delta_time > 1):
+            
             prediction = self.get_ball_prediction_struct().slices
             last_prediction = self.last_prediction
 
@@ -282,11 +303,6 @@ class MyBot(BaseAgent):
             if(deviation > 35):
                 return True
 
-        v = self.car_forward_velocity
-        t0 = (self.maneuver_time - self.since_maneuver_start)
-        d = self.path_length
-
-        vn = d / (t0 + 0.0001)
 
         return False
 
@@ -298,8 +314,7 @@ class MyBot(BaseAgent):
 
 
 
-        ball_location = self.predictBallLocation(
-            self.maneuver_time - self.since_maneuver_start)
+        ball_location = self.predictBallLocation(self.maneuver_time)
 
         car_to_ball = ball_location - self.car_location
         car_to_ball_direction = Vec3.normalized(car_to_ball)
@@ -326,11 +341,11 @@ class MyBot(BaseAgent):
         if(steering_radius < self.min_rad):
             steering_radius = self.min_rad
 
-        #self.renderer.draw_line_3d(target_location,target_location+ target_direction*600, self.renderer.red())
+        # self.renderer.draw_line_3d(target_location,target_location+ target_direction*600, self.renderer.red())
 
         # car circles
         car_direction = Orientation(self.car_rotation).forward
-        #self.renderer.draw_line_3d(self.car_location,self.car_location+ car_direction*600, self.renderer.red())
+        # self.renderer.draw_line_3d(self.car_location,self.car_location+ car_direction*600, self.renderer.red())
 
         # car circle 1
         Mc1 = Circle()
@@ -340,7 +355,7 @@ class MyBot(BaseAgent):
         Mc1.rotation = -1
         # render
         Mc1.points = self.getPointsInSircle(11, Mc1.radius, Mc1.location)
-        #self.renderer.draw_polyline_3d(Mc1.points, self.renderer.white())
+        # self.renderer.draw_polyline_3d(Mc1.points, self.renderer.white())
 
         # car circle 2
         Mc2 = Circle()
@@ -350,10 +365,10 @@ class MyBot(BaseAgent):
         Mc2.rotation = 1
         # render
         Mc2.points = self.getPointsInSircle(11, Mc2.radius, Mc2.location)
-        #self.renderer.draw_polyline_3d(Mc2.points, self.renderer.white())
+        # self.renderer.draw_polyline_3d(Mc2.points, self.renderer.white())
 
         # target circles
-        #self.renderer.draw_line_3d(target_location,target_location+ target_direction*100, self.renderer.red())
+        # self.renderer.draw_line_3d(target_location,target_location+ target_direction*100, self.renderer.red())
 
         # target circle 1
         Mt1 = Circle()
@@ -363,7 +378,7 @@ class MyBot(BaseAgent):
         Mt1.rotation = -1
         # render
         Mt1.points = self.getPointsInSircle(11, Mt1.radius, Mt1.location)
-        #self.renderer.draw_polyline_3d(Mt1.points, self.renderer.white())
+        # self.renderer.draw_polyline_3d(Mt1.points, self.renderer.white())
 
         # target circle 2
         Mt2 = Circle()
@@ -373,7 +388,7 @@ class MyBot(BaseAgent):
         Mt2.rotation = 1
         # render
         Mt2.points = self.getPointsInSircle(11, Mt2.radius, Mt2.location)
-        #self.renderer.draw_polyline_3d(Mt2.points, self.renderer.white())
+        # self.renderer.draw_polyline_3d(Mt2.points, self.renderer.white())
 
         possibleTangents = []
 
@@ -397,11 +412,11 @@ class MyBot(BaseAgent):
         best_path = ArcLineArcPath()
 
         for tangent in possibleTangents:
-            #self.renderer.draw_line_3d(tangent.start, tangent.end, self.renderer.white())
-            #self.renderer.draw_line_3d(tangent.start, tangent.circle1_center, self.renderer.white())
-            #self.renderer.draw_line_3d(car_location, tangent.circle1_center, self.renderer.white())
+            # self.renderer.draw_line_3d(tangent.start, tangent.end, self.renderer.white())
+            # self.renderer.draw_line_3d(tangent.start, tangent.circle1_center, self.renderer.white())
+            # self.renderer.draw_line_3d(car_location, tangent.circle1_center, self.renderer.white())
             # if(tangent.possible):
-            #self.renderer.draw_line_3d(tangent.start, tangent.end, self.renderer.white())
+            # self.renderer.draw_line_3d(tangent.start, tangent.end, self.renderer.white())
             c1_arc_angle = Vec3.angle(Vec3.flat(tangent.start - tangent.circle1_center), Vec3.flat(
                 self.car_location - tangent.circle1_center)) * 180/math.pi
             c1_radius = Vec3.length(
@@ -461,7 +476,7 @@ class MyBot(BaseAgent):
                 best_path.c1_length = c1_arc_length
                 best_path.c2_length = c2_arc_length
 
-        #self.renderer.draw_polyline_3d([best_path.start, best_path.tangent_start, best_path.tangent_end, best_path.end], self.renderer.red())
+        # self.renderer.draw_polyline_3d([best_path.start, best_path.tangent_start, best_path.tangent_end, best_path.end], self.renderer.red())
 
         return(best_path)
 
@@ -595,7 +610,26 @@ class MyBot(BaseAgent):
 
         return (x3, y3, x4, y4, True)
 
+    def isNearWall(self):
+        x = self.ball_location.x
+        y = self.ball_location.y
+
+        goals = [Vec3(0, 5213, 0), Vec3(0, -5213, 0)]
+        near = x > 3800 or x < -3800 or y > 4800 or y < -4800
+        near_goal = Vec3.length(self.ball_location - goals[0]) < 1500 or Vec3.length(self.ball_location - goals[1]) < 1500
+
+        print(near_goal)
+
+        if not near_goal:
+            return near
+        else: return False
+
     def getArcLineArcControllerState(self, path):
+
+
+
+
+
         steer = 0
         if(path.c1_length < 100 and path.tangent_length < 100):
             steer = steer_toward_target(self.my_car, path.end)

@@ -10,6 +10,11 @@ class ManeuverTime:
     def get(self, info):
         self.info = info
 
+
+        dist = self.info
+
+
+
         return 60
 
 
