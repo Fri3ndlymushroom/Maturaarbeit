@@ -16,11 +16,18 @@ from util.sequence import Sequence, ControlStep
 from util.vec import Vec3
 from util.orientation import Orientation
 from nn import learningAgent
-from plp import addDatapoint
+from util.get_maneuver_time import ManeuverTime
+
+
 
 
 
 class MyBot(BaseAgent):
+
+
+
+
+
     def __init__(self, name, team, index):
         super().__init__(name, team, index)
         self.active_sequence: Sequence = None
@@ -74,6 +81,7 @@ class MyBot(BaseAgent):
     def initialize_agent(self):
         # Set up information about the boost pads now that the game is active and the info is available
         self.boost_pad_tracker.initialize_boosts(self.get_field_info())
+
 
     def get_output(self, packet: GameTickPacket) -> SimpleControllerState:
         self.renderer.begin_rendering()
@@ -171,6 +179,16 @@ class MyBot(BaseAgent):
 
             target_location_info = [location, direction]
 
+        elif target == 101:            
+            self.renderText("random driection")
+
+
+            d1 = Vec3(random.randint(-100, 100), random.randint(-100, 100), random.randint(-100, 100))
+            d2 = Vec3(random.randint(-100, 100), random.randint(-100, 100), random.randint(-100, 100))
+
+            target_location_info = self.shootBallTowardsTarget(d1, d2)
+        
+
         self.target_location_info = target_location_info
 
     def setPath(self, target_location, target_direction):
@@ -198,7 +216,9 @@ class MyBot(BaseAgent):
 
     def setObjective(self):
 
-        if(self.unforseenAction()):
+        
+
+        if(self.unforseenAction() or Vec3.length(self.target_location_info[0] - self.car_location) < 200):
             #new_target_index = learningAgent.getAction(packet)
             new_target_index = 0
             self.target_index = new_target_index
@@ -225,38 +245,14 @@ class MyBot(BaseAgent):
 
         if(throttle < -1):
             throttle = -1
+
         controls.throttle = throttle
         return controls
 
     def createNewManeuver(self):
-        v0 = self.car_forward_velocity
-        t = 0
-        max_speed = 1500
-
-        lb = self.ball_location
-        d = self.path_length
+        self.maneuver_time = ManeuverTime.get(self)
 
 
-        bvs = Vec3.length(self.ball_location - self.ball_velocity/10 - self.car_location) - Vec3.length(self.ball_location - self.car_location) 
-
-        while d > 0:
-            d -= v0 / 10
-
-            d += bvs
-
-
-            v0 += self.getAcceleration(v0) / 100
-
-            if(v0 > max_speed):
-                v0 = max_speed
-            t += 1
-
-
-        if(t > 60):
-            t = 60
-
-
-        self.maneuver_time = t
 
     #==============================|==============================#
     #=====================Situation assessment====================#
