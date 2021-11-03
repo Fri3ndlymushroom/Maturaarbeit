@@ -304,6 +304,15 @@ class MyBot(BaseAgent):
                 return True
 
 
+        # not reachable
+
+        v = self.car_forward_velocity
+        l = self.path_length
+        t = round(self.maneuver_time - self.since_maneuver_start)
+
+
+
+
         return False
 
     #==============================|==============================#
@@ -618,17 +627,11 @@ class MyBot(BaseAgent):
         near = x > 3800 or x < -3800 or y > 4800 or y < -4800
         near_goal = Vec3.length(self.ball_location - goals[0]) < 1500 or Vec3.length(self.ball_location - goals[1]) < 1500
 
-        print(near_goal)
-
         if not near_goal:
             return near
         else: return False
 
     def getArcLineArcControllerState(self, path):
-
-
-
-
 
         steer = 0
         if(path.c1_length < 100 and path.tangent_length < 100):
