@@ -237,7 +237,6 @@ class MyBot(BaseAgent):
 
         if(throttle < -1):
             throttle = -1
-
         controls.throttle = throttle
         return controls
 
@@ -309,7 +308,6 @@ class MyBot(BaseAgent):
         v = self.car_forward_velocity
         l = self.path_length
         t = round(self.maneuver_time - self.since_maneuver_start)
-
 
 
 
@@ -453,12 +451,38 @@ class MyBot(BaseAgent):
             c2_arc_length = c2_arc_angle/360 * 2*math.pi * c2_radius
 
             tangent_length = Vec3.length(tangent.end - tangent.start)
-            if(Vec3.length(self.car_location - tangent.end) < 200):
+
+            """if(Vec3.length(self.car_location - tangent.end) < 200):
                 c1_arc_angle = 0
                 c1_arc_length = 0
             elif(Vec3.length(tangent.circle1_center - tangent.circle2_center) < 200):
                 c2_arc_angle = 0
-                c2_arc_length = 0
+                c2_arc_length = 0"""
+
+
+            if(Vec3.length(tangent.circle1_center - tangent.circle2_center) < 200):
+                sidevector = Vec3.normalized(Orientation(self.car_rotation).right)
+
+                a = self.car_location
+                b = a + sidevector
+                c = best_path.end
+
+
+                infront = ((b.x - a.x)*(c.y - a.y) - (b.y - a.y)*(c.x - a.x)) < 0
+                
+                
+                c1_arc_angle = 0
+                c1_arc_length = 0
+
+                angle = Vec3.angle(Vec3.flat(a - tangent.circle2_center), Vec3.flat(target_location - tangent.circle2_center)) * 180/math.pi
+
+                if infront:
+                    c2_arc_angle = angle
+                else:
+                    c2_arc_angle = 360 - angle
+
+                c2_arc_length = c2_arc_angle/360 * 2*math.pi * c2_radius
+
 
             arc_line_arc_length = c1_arc_length + tangent_length + c2_arc_length
 
@@ -486,7 +510,7 @@ class MyBot(BaseAgent):
                 best_path.c2_length = c2_arc_length
 
         # self.renderer.draw_polyline_3d([best_path.start, best_path.tangent_start, best_path.tangent_end, best_path.end], self.renderer.red())
-
+        print(round(best_path.tangent_length),round(best_path.c1_length), round(best_path.c2_length))
         return(best_path)
 
     def getCrossTangents(self, C1, C2, car_location, target_direction, target_location):
