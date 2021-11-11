@@ -17,10 +17,12 @@ from path_module import Path
 from controlls_module import Controlls
 from renderer_module import Renderer
 from helpers_module import Helpers
+from sequence_module import Sequences
 
 
 
-class MyBot(BaseAgent, Objective, Target, Path, Controlls, Renderer, Helpers):
+
+class MyBot(BaseAgent, Objective, Target, Path, Controlls, Renderer, Helpers, Sequences):
     def __init__(self, name, team, index):
         super().__init__(name, team, index)
         self.active_sequence: Sequence = None
@@ -117,7 +119,7 @@ class MyBot(BaseAgent, Objective, Target, Path, Controlls, Renderer, Helpers):
         self.path_length = path.length
         controls.steer = self.getArcLineArcControllerState(path)
         controls = self.getThrottle(controls)
-        if(Vec3.length(self.car_location - self.ball_location) < 185):
+        if(Vec3.length(self.car_location - self.ball_location) < 180):
             return self.begin_front_flip(self.packet)
 
         self.renderer.end_rendering()

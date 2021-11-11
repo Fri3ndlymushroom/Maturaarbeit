@@ -46,11 +46,14 @@ class Objective():
     
     def unforseenAction(self):
 
+        # not inited
         if self.last_prediction == None or self.since_maneuver_start > self.maneuver_time:
             self.last_prediction = self.get_ball_prediction_struct().slices
             self.last_time = self.packet.game_info.seconds_elapsed
             return True
 
+
+        # no time left
         time = self.packet.game_info.seconds_elapsed
         delta_time = round(359/60*(time - self.last_time) * 10)
 
@@ -77,6 +80,14 @@ class Objective():
         l = self.path_length
         t = round(self.maneuver_time - self.since_maneuver_start)
 
+
+        while t > 0:
+            l -= v / 10
+            v += self.getAcceleration(v) /10
+            t -= 1
+        
+
+        if(l - 200 > 0): return True
 
 
         return False

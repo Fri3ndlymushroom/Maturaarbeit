@@ -20,8 +20,6 @@ class Controlls():
             throttle = -1
         controls.throttle = throttle
 
-
-        print(throttle)
         return controls
 
     def getArcLineArcControllerState(self, path):

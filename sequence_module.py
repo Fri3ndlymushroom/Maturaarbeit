@@ -2,7 +2,7 @@ from util.sequence import Sequence, ControlStep
 
 from rlbot.agents.base_agent import SimpleControllerState
 
-class Sequence():
+class Sequences():
 
     def begin_front_flip(self, packet):
         # Send some quickchat just for fun
