@@ -24,6 +24,7 @@ class Objective():
 
         d = d * long_coefficient + short_coefficient / d
 
+        d = self.path_length
 
         max_speed = 1500
 
@@ -35,7 +36,7 @@ class Objective():
                 v0 = max_speed
             t += 1
 
-        t = t * 2
+        t = t * 0.75
 
         if(t > 60):
             t = 60
@@ -86,8 +87,8 @@ class Objective():
             v += self.getAcceleration(v) /10
             t -= 1
         
-
+        print(l)
         if(l - 200 > 0): return True
-
+        if(l < -2000): return True
 
         return False
