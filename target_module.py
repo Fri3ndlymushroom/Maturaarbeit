@@ -59,7 +59,7 @@ class Target():
         direction_of_approach = Vec3.clamp2D(
             direction=car_to_ball_direction, start=ball_to_left_target_direction, end=ball_to_right_target_direction)
         # offset would be 92.75 but is better with a greater value for arc line arc
-        offset_ball_location = ball_location - direction_of_approach * 100
+        offset_ball_location = ball_location - direction_of_approach * 90
 
 
         return [offset_ball_location, direction_of_approach]

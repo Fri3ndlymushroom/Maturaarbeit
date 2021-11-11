@@ -42,3 +42,41 @@ class Objective():
 
 
         self.maneuver_time = t
+
+    
+    def unforseenAction(self):
+
+        if self.last_prediction == None or self.since_maneuver_start > self.maneuver_time:
+            self.last_prediction = self.get_ball_prediction_struct().slices
+            self.last_time = self.packet.game_info.seconds_elapsed
+            return True
+
+        time = self.packet.game_info.seconds_elapsed
+        delta_time = round(359/60*(time - self.last_time) * 10)
+
+        if(delta_time > 1):
+            
+            prediction = self.get_ball_prediction_struct().slices
+            last_prediction = self.last_prediction
+
+            new_prediction = prediction[100].physics.location
+            old_prediction = last_prediction[100-delta_time].physics.location
+
+            deviation = Vec3.length(Vec3(new_prediction.x, new_prediction.y, new_prediction.z) - Vec3(
+                old_prediction.x, old_prediction.y, old_prediction.z))
+
+            self.last_prediction = self.get_ball_prediction_struct().slices
+            self.last_time = self.packet.game_info.seconds_elapsed
+            if(deviation > 35):
+                return True
+
+
+        # not reachable
+
+        v = self.car_forward_velocity
+        l = self.path_length
+        t = round(self.maneuver_time - self.since_maneuver_start)
+
+
+
+        return False

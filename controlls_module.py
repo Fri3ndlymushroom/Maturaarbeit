@@ -11,7 +11,7 @@ class Controlls():
         speed = self.car_forward_velocity
         diff = needed_speed - speed
 
-        throttle = diff/1000 * 2
+        throttle = diff/1000 * 3
 
         if(throttle > 1):
             throttle = 1
