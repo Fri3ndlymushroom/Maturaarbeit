@@ -10,7 +10,7 @@ from util.sequence import Sequence
 from util.vec import Vec3
 from util.orientation import Orientation
 
-from nn import learningAgent
+
 from objective_module import Objective 
 from target_module import Target
 from path_module import Path
@@ -119,20 +119,19 @@ class MyBot(BaseAgent, Objective, Target, Path, Controlls, Renderer, Helpers, Se
         self.path_length = path.length
         controls.steer = self.getArcLineArcControllerState(path)
         controls = self.getThrottle(controls)
+
+
+        # sequences
         if(Vec3.length(self.car_location - self.ball_location) < 180):
             return self.begin_front_flip(self.packet)
 
-        self.renderer.end_rendering()
-
-
-
-
+        
         # to remove ball from unpractical edges
         if self.isNearWall():
             controls.steer = steer_toward_target(self.my_car, self.ball_location)
             controls.throttle = 1
 
-
+        self.renderer.end_rendering()
         return controls
 
 

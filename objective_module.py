@@ -1,30 +1,34 @@
 from util.vec import Vec3
+from nn import learningAgent
 
 
 class Objective():
     def setObjective(self):
 
         if(self.unforseenAction()):
-            # new_target_index = learningAgent.getAction(packet)
             new_target_index = 0
+            #new_target_index = learningAgent.getAction(self.packet)
             self.target_index = new_target_index
             self.maneuver_start = self.packet.game_info.seconds_elapsed
+
             self.createNewManeuver()
             return True
         else: return False
 
     def createNewManeuver(self):
 
+        # generate a point the bot can surely reach
+        self.maneuver_time = 60
+
+        [target_location, target_direction] = self.setTarget()
+
+        possible_path_length = self.setPath(
+                target_location, target_direction).length
+
         v0 = self.car_forward_velocity
         t = 0
-        d = Vec3.length(self.car_location - self.ball_location) 
+        d = possible_path_length
 
-        short_coefficient = 500
-        long_coefficient = 2
-
-        d = d * long_coefficient + short_coefficient / d
-
-        d = self.path_length
 
         max_speed = 1500
 
@@ -36,7 +40,7 @@ class Objective():
                 v0 = max_speed
             t += 1
 
-        t = t * 0.75
+        t = t * 0.7
 
         if(t > 60):
             t = 60
@@ -86,9 +90,8 @@ class Objective():
             l -= v / 10
             v += self.getAcceleration(v) /10
             t -= 1
-        
-        print(l)
-        if(l - 200 > 0): return True
-        if(l < -2000): return True
+
+        #if(l - 200 > 0): return True
+        #if(l < -2000): return True
 
         return False

@@ -10,7 +10,7 @@ class Target():
         if target == 0:
             self.renderText("attack")
             target_location_info = self.shootBallTowardsTarget(
-                Vec3(800, 5213, 321.3875), Vec3(-800, 5213, 321.3875))
+                Vec3(100, 5213, 321.3875), Vec3(-100, 5213, 321.3875))
         elif target == 1:
             self.renderText("defend")
             target_location_info = self.shootBallTowardsTarget(
@@ -44,6 +44,7 @@ class Target():
             target_location_info = self.shootBallTowardsTarget(d1, d2)
 
         self.target_location_info = target_location_info
+        return target_location_info
 
     def shootBallTowardsTarget(self, left_most_target, right_most_target):
 

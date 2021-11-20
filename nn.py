@@ -45,9 +45,8 @@ class ModelAgent():
         model.add(tf.keras.layers.Dense(self.OBSERVATION_SPACE_SIZE, input_shape=(
             self.OBSERVATION_SPACE_SIZE,), activation="relu"))
 
-        model.add(tf.keras.layers.Dense(16, activation="relu"))
-        model.add(tf.keras.layers.Dense(16, activation="relu"))
-        model.add(tf.keras.layers.Dense(16, activation="relu"))
+        model.add(tf.keras.layers.Dense(8, activation="relu"))
+        model.add(tf.keras.layers.Dense(8, activation="relu"))
 
         model.add(tf.keras.layers.Dense(
             self.ACTION_SPACE_SIZE, activation="linear"))
@@ -117,7 +116,7 @@ class QLearningAgent:
         self.episode_reward = 0
         self.done = False
         self.total_step = 1
-        self.STEPS_PER_EPISODE = 20
+        self.STEPS_PER_EPISODE = 50
 
         # epsilon
         self.epsilon = 1
@@ -131,6 +130,8 @@ class QLearningAgent:
         self.MOVE_PENALTY = 1
         self.DISTANCE_PENALTY_MULTIPLICATOR = 5
 
+        self.last_call = 0
+
         self.reward_info = rewardInfo()
 
     def getAction(self, packet):
@@ -140,11 +141,15 @@ class QLearningAgent:
         self_car_location = Vec3(self_car.physics.location)
         enemy_car_location = Vec3(enemy_car.physics.location)
         ball_location = Vec3(packet.game_ball.physics.location)
+        game_time = packet.game_info.seconds_elapsed
+        last_call_valid = game_time - self.last_call > 0.5
+
 
         if self.step == self.STEPS_PER_EPISODE or self.done:
 
             print("episode: ", self.episode, " reward: ", self.episode_reward)
 
+            addDatapoint([self.epsilon, self.episode_reward])
             self.episode += 1
             self.step = 1
             self.episode_reward = 0
@@ -178,19 +183,18 @@ class QLearningAgent:
             self.step_reward = self.reward_info.made_shots + 10 * self.reward_info.made_goals + \
                 self.reward_info.made_saves - 10 * self.reward_info.made_got_goals
 
-            print(
+            """print(
                 self.reward_info.made_shots,
                 self.reward_info.made_goals,
                 self.reward_info.made_saves,
                 self.reward_info.made_got_goals
-
-            )
+            )"""
 
             self.episode_reward += self.step_reward
-
-            agent.update_replay_memory(
-                (self.old_state, self.action, self.step_reward, self.state_now, self.done))
-            agent.train(self.done, self.step)
+            if(last_call_valid):
+                agent.update_replay_memory(
+                    (self.old_state, self.action, self.step_reward, self.state_now, self.done))
+                agent.train(self.done, self.step)
 
         # neuen schritt machen
         if np.random.random() > self.epsilon:
@@ -206,11 +210,12 @@ class QLearningAgent:
 
         # self.action = np.argmax(agent.get_qs(self.state_now))
         self.old_state = self.state_now
+        if(last_call_valid):
+            self.step += 1
+            self.total_step += 1
+        self.last_call = game_time
 
-        self.step += 1
-        self.total_step += 1
-
-        addDatapoint([self.step_reward, self.epsilon])
+        
 
         return self.action
 
