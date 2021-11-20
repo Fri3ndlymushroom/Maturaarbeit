@@ -18,7 +18,7 @@ class Objective():
     def createNewManeuver(self):
 
         # generate a point the bot can surely reach
-        self.maneuver_time = 60
+        self.maneuver_time = 20
 
         [target_location, target_direction] = self.setTarget()
 
