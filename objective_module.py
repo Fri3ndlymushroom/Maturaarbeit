@@ -6,8 +6,11 @@ class Objective():
     def setObjective(self):
 
         if(self.unforseenAction()):
-            new_target_index = 0
-            #new_target_index = learningAgent.getAction(self.packet)
+            new_target_index = self.target_index
+            if(self.since_maneuver_start > 0.5):
+                new_target_index = 0
+                print("call")
+                #new_target_index = learningAgent.getAction(self.packet)
             self.target_index = new_target_index
             self.maneuver_start = self.packet.game_info.seconds_elapsed
 
@@ -18,16 +21,39 @@ class Objective():
     def createNewManeuver(self):
 
         # generate a point the bot can surely reach
-        self.maneuver_time = 20
+        best_path = [60, 1000000]
+        for i in range(60):
+            self.maneuver_time = i
 
-        [target_location, target_direction] = self.setTarget()
+            [target_location, target_direction] = self.setTarget()
 
-        possible_path_length = self.setPath(
-                target_location, target_direction).length
+            possible_path_length = self.setPath(
+                    target_location, target_direction).length
+
+
+
+            v = self.car_forward_velocity
+            l = possible_path_length
+            t = round(i)
+
+
+            while t > 0:
+                l -= v / 10
+                v += self.getAcceleration(v) /10
+                t -= 1
+
+            reachable = (l + 500  < 0)
+
+            if(i == 59): reachable= True
+
+            if(possible_path_length < best_path[1] and reachable):
+                best_path = [i, possible_path_length]
+
+        self.maneuver_time = best_path[0]
 
         v0 = self.car_forward_velocity
         t = 0
-        d = possible_path_length
+        d = best_path[1]
 
 
         max_speed = 1500
@@ -91,7 +117,7 @@ class Objective():
             v += self.getAcceleration(v) /10
             t -= 1
 
-        #if(l - 200 > 0): return True
-        #if(l < -2000): return True
+        if(l - 500 > 0): return True
+
 
         return False
