@@ -34,8 +34,6 @@ class ModelAgent():
         self.MIN_REPLAY_MEMORY_SIZE = 100
         self.replay_memory = deque(maxlen=self.REPLAY_MEMORY_SIZE)
 
-        # todo: modified tensor board
-
         # --target update counter-- # keeps track of when to update target model
         self.target_update_counter = 0
 
@@ -51,14 +49,14 @@ class ModelAgent():
         model.add(tf.keras.layers.Dense(
             self.ACTION_SPACE_SIZE, activation="linear"))
         model.compile(loss="mse", optimizer=tf.keras.optimizers.Adam(
-            lr=0.001), metrics=['accuracy'])
+            lr=0.01), metrics=['accuracy']) #0.001
         return model
 
     def update_replay_memory(self, transition):
         self.replay_memory.append(transition)
 
     def get_qs(self, state):
-        return self.model.predict(np.array(state).reshape(-1, *np.array(state).shape)/1)[0]
+        return self.model.predict(np.array(state).reshape(-1, *np.array(state).shape))[0]
 
     def train(self, terminal_state, step):
 
@@ -71,12 +69,12 @@ class ModelAgent():
 
         # get q values
         current_states = np.array([transition[0]
-                                  for transition in minibatch])/1
+                                  for transition in minibatch])
         current_qs_list = self.model.predict(current_states)
 
         # future q values
         new_current_states = np.array(
-            [transition[3] for transition in minibatch])/1
+            [transition[3] for transition in minibatch])
         future_qs_list = self.target_model.predict(new_current_states)
 
         # update model
@@ -96,7 +94,7 @@ class ModelAgent():
             X.append(current_state)
             y.append(current_qs)
 
-        self.model.fit(np.array(X)/1, np.array(y), batch_size=self.MINIBATCH_SIZE,
+        self.model.fit(np.array(X), np.array(y), batch_size=self.MINIBATCH_SIZE,
                        verbose=0, shuffle=False, callbacks=[] if terminal_state else None)
         if terminal_state:
             self.target_update_counter += 1
@@ -114,6 +112,7 @@ class QLearningAgent:
         self.step = 1
         self.episode = 1
         self.episode_reward = 0
+        self.episode_rewards = []
         self.done = False
         self.total_step = 1
         self.STEPS_PER_EPISODE = 50
@@ -130,8 +129,6 @@ class QLearningAgent:
         self.MOVE_PENALTY = 1
         self.DISTANCE_PENALTY_MULTIPLICATOR = 5
 
-        self.last_call = 0
-
         self.reward_info = rewardInfo()
 
     def getAction(self, packet):
@@ -142,24 +139,71 @@ class QLearningAgent:
         enemy_car_location = Vec3(enemy_car.physics.location)
         ball_location = Vec3(packet.game_ball.physics.location)
         game_time = packet.game_info.seconds_elapsed
-        last_call_valid = game_time - self.last_call > 0.5
 
 
         if self.step == self.STEPS_PER_EPISODE or self.done:
 
-            print("episode: ", self.episode, " reward: ", self.episode_reward)
+            #print("episode: ", self.episode, " reward: ", self.episode_reward)
+            #addDatapoint([self.epsilon, self.episode_reward])
+            if not (self.episode == 0):
+                self.episode_rewards.append(self.episode_reward)
 
-            addDatapoint([self.epsilon, self.episode_reward])
+
+            print(f"Average: {sum(self.episode_rewards) / self.episode_rewards.length}, Max: {np.argmax(self.episode_rewards)}, Min: {np.argmin(self.episode_rewards)}")
+
+
+
+
             self.episode += 1
             self.step = 1
             self.episode_reward = 0
             self.done = False
 
         self.state_now = [
-            self_car_location.x, self_car_location.y,
-            enemy_car_location.x, enemy_car_location.y,
-            ball_location.x, ball_location.y
+            self_car_location.x / 4096, self_car_location.y / 5120,
+            enemy_car_location.x / 4096, enemy_car_location.y / 5120,
+            ball_location.x / 4096, ball_location.y / 5120
         ]
+
+
+
+        # den letzten schritt beurteilen
+        if not self.step == 1:
+
+
+            self.step_reward = self.getReward(self_car, packet)
+
+            self.episode_reward += self.step_reward
+            agent.update_replay_memory(
+                    (self.old_state, self.action, self.step_reward, self.state_now, self.done))
+            agent.train(self.done, self.step)
+
+        # neuen schritt machen
+        if np.random.random() > self.epsilon:
+            # Get action from Q table
+            self.action = np.argmax(agent.get_qs(self.state_now))
+        else:
+            # Get random action
+            self.action = np.random.randint(0, self.ACTION_SPACE_SIZE)
+
+        if self.epsilon > self.MIN_EPSILON:
+            self.epsilon *= self.EPSILON_DECAY
+            self.epsilon = max(self.MIN_EPSILON, self.epsilon)
+
+        self.old_state = self.state_now
+
+        self.step += 1
+        self.total_step += 1
+        self.last_call = game_time
+
+        return self.action
+
+
+    def getReward(self, self_car, packet):
+
+        # 0.1*touch + shot + save + 10*goal - 10*concede - shot_on_own_goal
+
+
 
         score_info = self_car.score_info
         # shots
@@ -176,48 +220,11 @@ class QLearningAgent:
             self.reward_info.got_goals
         self.reward_info.got_goals = packet.teams[1].score
 
-        # den letzten schritt beurteilen
-        if not self.step == 1:
-            # 0.1*touch + shot + save + 10*goal - 10*concede - shot_on_own_goal
-
-            self.step_reward = self.reward_info.made_shots + 10 * self.reward_info.made_goals + \
+        reward = self.reward_info.made_shots + 10 * self.reward_info.made_goals + \
                 self.reward_info.made_saves - 10 * self.reward_info.made_got_goals
-
-            """print(
-                self.reward_info.made_shots,
-                self.reward_info.made_goals,
-                self.reward_info.made_saves,
-                self.reward_info.made_got_goals
-            )"""
-
-            self.episode_reward += self.step_reward
-            if(last_call_valid):
-                agent.update_replay_memory(
-                    (self.old_state, self.action, self.step_reward, self.state_now, self.done))
-                agent.train(self.done, self.step)
-
-        # neuen schritt machen
-        if np.random.random() > self.epsilon:
-            # Get action from Q table
-            self.action = np.argmax(agent.get_qs(self.state_now))
-        else:
-            # Get random action
-            self.action = np.random.randint(0, self.ACTION_SPACE_SIZE)
-
-        if self.epsilon > self.MIN_EPSILON:
-            self.epsilon *= self.EPSILON_DECAY
-            self.epsilon = max(self.MIN_EPSILON, self.epsilon)
-
-        # self.action = np.argmax(agent.get_qs(self.state_now))
-        self.old_state = self.state_now
-        if(last_call_valid):
-            self.step += 1
-            self.total_step += 1
-        self.last_call = game_time
-
         
+        return reward
 
-        return self.action
 
 
 class rewardInfo:

@@ -7,10 +7,9 @@ class Objective():
 
         if(self.unforseenAction()):
             new_target_index = self.target_index
-            if(self.since_maneuver_start > 0.5):
+            if(self.since_maneuver_start > 1):
                 new_target_index = 0
-                print("call")
-                #new_target_index = learningAgent.getAction(self.packet)
+                new_target_index = learningAgent.getAction(self.packet)
             self.target_index = new_target_index
             self.maneuver_start = self.packet.game_info.seconds_elapsed
 
@@ -21,7 +20,7 @@ class Objective():
     def createNewManeuver(self):
 
         # generate a point the bot can surely reach
-        best_path = [60, 1000000]
+        best_path = [59, 1000000]
         for i in range(60):
             self.maneuver_time = i
 
@@ -71,7 +70,6 @@ class Objective():
         if(t > 60):
             t = 60
 
-
         self.maneuver_time = t
 
     
@@ -117,7 +115,7 @@ class Objective():
             v += self.getAcceleration(v) /10
             t -= 1
 
-        if(l - 500 > 0): return True
+        #if(l - 500 > 0): return True
 
 
         return False
