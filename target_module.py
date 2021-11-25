@@ -1,6 +1,8 @@
 from util.vec import Vec3
 import random
 
+from util.orientation import Orientation, relative_location
+
 class Target():
     def setTarget(self):
 
@@ -20,7 +22,12 @@ class Target():
         elif target == 2:
             self.renderText("base line")
             target_location_info = [Vec3(0, -4200, 0), Vec3(0,1,0)]
-
+        elif target == 3:
+            self.renderText("ready")
+            target_location_info = [Vec3(0, 4200, 0), Vec3(0,1,0)]
+        elif target == 4:
+            self.renderText("ready")
+            target_location_info = [self.ball_location, Orientation(self.car_rotation )]
 
 
 

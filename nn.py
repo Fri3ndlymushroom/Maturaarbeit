@@ -10,7 +10,7 @@ from matplotlib.animation import FuncAnimation
 
 tf.get_logger().setLevel(3)
 
-ACTION_SPACE_SIZE = 3
+ACTION_SPACE_SIZE = 5
 OBSERVATION_SPACE_SIZE = 6
 
 
