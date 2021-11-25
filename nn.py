@@ -10,6 +10,9 @@ from matplotlib.animation import FuncAnimation
 
 tf.get_logger().setLevel(3)
 
+ACTION_SPACE_SIZE = 3
+OBSERVATION_SPACE_SIZE = 6
+
 
 class ModelAgent():
     def __init__(self):
@@ -17,16 +20,19 @@ class ModelAgent():
         self.MODEL_NAME = "model"
         self.MINIBATCH_SIZE = 64
         self.DISCOUNT = 0.99
-        self.ACTION_SPACE_SIZE = 2
-        self.OBSERVATION_SPACE_SIZE = 6
 
-        # --Models-- # Two models to get better consistency and not fit main model to values with to high epsilon
-        # Main model # gets trained every step
-        self.model = self.create_model()
 
-        # Target model # gets predicted against every step
-        self.target_model = self.create_model()
-        self.target_model.set_weights(self.model.get_weights())
+        try:
+            self.model = tf.keras.models.load_model("src/training/target")
+            self.target_model = self.create_model()
+            self.target_model.set_weights(self.model.get_weights())
+        except:
+            # --Models-- # Two models to get better consistency and not fit main model to values with to high epsilon
+            # Main model # gets trained every step
+            self.model = self.create_model()
+            # Target model # gets predicted against every step
+            self.target_model = self.create_model()
+            self.target_model.set_weights(self.model.get_weights())
 
         # --Replay memory-- # The network is trained with a random batch of the replay memory
         # # Deque is a list that has a max len and pushes out the oldest value
@@ -47,7 +53,7 @@ class ModelAgent():
         model.add(tf.keras.layers.Dense(8, activation="relu"))
 
         model.add(tf.keras.layers.Dense(
-            self.ACTION_SPACE_SIZE, activation="linear"))
+            ACTION_SPACE_SIZE, activation="linear"))
         model.compile(loss="mse", optimizer=tf.keras.optimizers.Adam(
             lr=0.01), metrics=['accuracy']) #0.001
         return model
@@ -98,8 +104,11 @@ class ModelAgent():
                        verbose=0, shuffle=False, callbacks=[] if terminal_state else None)
         if terminal_state:
             self.target_update_counter += 1
+            print("terminal state")
 
         if self.target_update_counter > self.UPDATE_TARGET_EVERY:
+            print("update target")
+            self.model.save("src/training/target")
             self.target_model.set_weights(self.model.get_weights())
             self.target_update_counter = 0
 
@@ -121,9 +130,6 @@ class QLearningAgent:
         self.epsilon = 1
         self.EPSILON_DECAY = 0.99975
         self.MIN_EPSILON = 0.001
-
-        # action space size
-        self.ACTION_SPACE_SIZE = 2
 
         # penaltys
         self.MOVE_PENALTY = 1
@@ -148,11 +154,7 @@ class QLearningAgent:
             if not (self.episode == 0):
                 self.episode_rewards.append(self.episode_reward)
 
-
-            print(f"Average: {sum(self.episode_rewards) / self.episode_rewards.length}, Max: {np.argmax(self.episode_rewards)}, Min: {np.argmin(self.episode_rewards)}")
-
-
-
+            print(f"Average: {sum(self.episode_rewards) / len(self.episode_rewards)}, Max: {np.argmax(self.episode_rewards)}, Min: {np.argmin(self.episode_rewards)}")
 
             self.episode += 1
             self.step = 1
@@ -174,8 +176,13 @@ class QLearningAgent:
             self.step_reward = self.getReward(self_car, packet)
 
             self.episode_reward += self.step_reward
+
             agent.update_replay_memory(
                     (self.old_state, self.action, self.step_reward, self.state_now, self.done))
+
+
+            if self.step == self.STEPS_PER_EPISODE: self.done = True
+            
             agent.train(self.done, self.step)
 
         # neuen schritt machen
@@ -184,7 +191,7 @@ class QLearningAgent:
             self.action = np.argmax(agent.get_qs(self.state_now))
         else:
             # Get random action
-            self.action = np.random.randint(0, self.ACTION_SPACE_SIZE)
+            self.action = np.random.randint(0, ACTION_SPACE_SIZE)
 
         if self.epsilon > self.MIN_EPSILON:
             self.epsilon *= self.EPSILON_DECAY

@@ -17,6 +17,21 @@ class Target():
                 Vec3(10000, self.ball_location.y - 2000, self.ball_location.z),
                 Vec3(-10000, self.ball_location.y - 2000, self.ball_location.z),
             )
+        elif target == 2:
+            self.renderText("base line")
+            target_location_info = [Vec3(0, -4200, 0), Vec3(0,1,0)]
+
+
+
+
+
+
+
+
+
+
+
+
         elif target == 100:
             self.renderText("random")
 

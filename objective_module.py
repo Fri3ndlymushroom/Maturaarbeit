@@ -48,7 +48,7 @@ class Objective():
             if(possible_path_length < best_path[1] and reachable):
                 best_path = [i, possible_path_length]
 
-        self.maneuver_time = best_path[0]
+        self.maneuver_time = best_path[0] + 10
 
         v0 = self.car_forward_velocity
         t = 0
