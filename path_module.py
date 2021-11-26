@@ -137,7 +137,7 @@ class Path():
             tangent_length = Vec3.length(tangent.end - tangent.start)
 
 
-            if(Vec3.length(tangent.circle1_center - tangent.circle2_center) < 200):
+            if(Vec3.length(tangent.circle1_center - tangent.circle2_center) < c1_radius * 0.5):
                 sidevector = Vec3.normalized(Orientation(self.car_rotation).right)
 
                 a = self.car_location
@@ -187,6 +187,8 @@ class Path():
                 best_path.c2_length = c2_arc_length
 
         # self.renderer.draw_polyline_3d([best_path.start, best_path.tangent_start, best_path.tangent_end, best_path.end], self.renderer.red())
+
+        print(best_path.length)
         return(best_path)
 
     def getCrossTangents(self, C1, C2, car_location, target_direction, target_location):

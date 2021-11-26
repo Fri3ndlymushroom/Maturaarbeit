@@ -9,7 +9,7 @@ class Objective():
             new_target_index = self.target_index
             if(self.since_maneuver_start > 1):
                 new_target_index = 0
-                new_target_index = learningAgent.getAction(self.packet)
+                #new_target_index = learningAgent.getAction(self.packet)
             self.target_index = new_target_index
             self.maneuver_start = self.packet.game_info.seconds_elapsed
 
@@ -48,7 +48,7 @@ class Objective():
             if(possible_path_length < best_path[1] and reachable):
                 best_path = [i, possible_path_length]
 
-        self.maneuver_time = best_path[0] + 10
+        self.maneuver_time = best_path[0] + 30
 
         v0 = self.car_forward_velocity
         t = 0
@@ -115,7 +115,7 @@ class Objective():
             v += self.getAcceleration(v) /10
             t -= 1
 
-        #if(l - 500 > 0): return True
+        #if(l -500 > 0 ): return True
 
 
         return False

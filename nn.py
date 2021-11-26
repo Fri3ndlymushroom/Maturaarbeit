@@ -104,10 +104,10 @@ class ModelAgent():
                        verbose=0, shuffle=False, callbacks=[] if terminal_state else None)
         if terminal_state:
             self.target_update_counter += 1
-            print("terminal state")
+            print("------terminal state------")
 
         if self.target_update_counter > self.UPDATE_TARGET_EVERY:
-            print("update target")
+            print("-------update target-------")
             self.model.save("src/training/target")
             self.target_model.set_weights(self.model.get_weights())
             self.target_update_counter = 0
@@ -133,7 +133,6 @@ class QLearningAgent:
 
         # penaltys
         self.MOVE_PENALTY = 1
-        self.DISTANCE_PENALTY_MULTIPLICATOR = 5
 
         self.reward_info = rewardInfo()
 
@@ -154,7 +153,9 @@ class QLearningAgent:
             if not (self.episode == 0):
                 self.episode_rewards.append(self.episode_reward)
 
-            print(f"Average: {sum(self.episode_rewards) / len(self.episode_rewards)}, Max: {np.argmax(self.episode_rewards)}, Min: {np.argmin(self.episode_rewards)}")
+            print("===================================Episode {self.episode} evaluation===================================")
+            print(f"Last: {self.episode_reward}, Average: {sum(self.episode_rewards) / len(self.episode_rewards)}, Max: {np.argmax(self.episode_rewards)}, Min: {np.argmin(self.episode_rewards)}")
+            print("=============================================================================================")
 
             self.episode += 1
             self.step = 1
@@ -202,6 +203,10 @@ class QLearningAgent:
         self.step += 1
         self.total_step += 1
         self.last_call = game_time
+
+
+
+        print(f"step: {self.step}/{self.STEPS_PER_EPISODE}, total: {self.total_step}, ")
 
         return self.action
 

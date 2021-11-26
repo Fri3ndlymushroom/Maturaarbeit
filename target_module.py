@@ -33,13 +33,6 @@ class Target():
 
 
 
-
-
-
-
-
-
-
         elif target == 100:
             self.renderText("random")
 
