@@ -46,8 +46,8 @@ class ModelAgent():
     def create_model(self):
         model = tf.keras.models.Sequential()
 
-        model.add(tf.keras.layers.Dense(self.OBSERVATION_SPACE_SIZE, input_shape=(
-            self.OBSERVATION_SPACE_SIZE,), activation="relu"))
+        model.add(tf.keras.layers.Dense(OBSERVATION_SPACE_SIZE, input_shape=(
+            OBSERVATION_SPACE_SIZE,), activation="relu"))
 
         model.add(tf.keras.layers.Dense(8, activation="relu"))
         model.add(tf.keras.layers.Dense(8, activation="relu"))

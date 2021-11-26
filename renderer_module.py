@@ -15,14 +15,17 @@ class Renderer():
                 prediction_slice = ball_prediction.slices[i]
                 location = prediction_slice.physics.location
 
-                if (i-1) % 2 == 0:
-                    loc2 = location
-                else:
-                    loc1 = location
+                try:
+                    loc1 = ball_prediction.slices[i].physics.location
+                    loc2 = ball_prediction.slices[i+6].physics.location
+                except:
+                    None
+
 
                 if loc1 is not None and loc2 is not None:
-                    self.renderer.draw_line_3d(
-                        loc1, loc2, self.renderer.yellow())
+                    if(i%6==0):
+                        self.renderer.draw_line_3d(
+                            loc1, loc2, self.renderer.yellow())
 
 
     def renderText(self, text):

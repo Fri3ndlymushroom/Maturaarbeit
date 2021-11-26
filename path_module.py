@@ -6,14 +6,14 @@ from util.orientation import Orientation
 
 class Path():
     def setPath(self, target_location, target_direction):
-
+        
         self.renderer.draw_line_3d(Vec3(target_location.x, target_location.y, 0), Vec3(
             target_location.x, target_location.y, target_location.z+100), self.renderer.red())
         self.renderer.draw_line_3d(target_location, Vec3(
             target_location.x, target_location.y+100, target_location.z), self.renderer.red())
         self.renderer.draw_line_3d(target_location, Vec3(
             target_location.x+100, target_location.y, target_location.z), self.renderer.red())
-
+        
         size = 7
 
         self.renderer.draw_rect_3d(Vec3(
@@ -333,13 +333,14 @@ class Path():
         return(circle_positions)
 
     def renderArcLineArcPath(self, path):
-
+        
         p = self.getPointsInSircle(20, path.c1_radius, path.c1_center)
         self.renderer.draw_polyline_3d(p, self.renderer.purple())
         self.renderer.draw_line_3d(
             path.tangent_start, path.tangent_end, self.renderer.purple())
         p = self.getPointsInSircle(20, path.c2_radius, path.c2_center)
         self.renderer.draw_polyline_3d(p, self.renderer.purple())
+        
 
 class Circle:
     def __init__(self):
