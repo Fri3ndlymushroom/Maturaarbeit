@@ -188,7 +188,6 @@ class Path():
 
         # self.renderer.draw_polyline_3d([best_path.start, best_path.tangent_start, best_path.tangent_end, best_path.end], self.renderer.red())
 
-        print(best_path.length)
         return(best_path)
 
     def getCrossTangents(self, C1, C2, car_location, target_direction, target_location):

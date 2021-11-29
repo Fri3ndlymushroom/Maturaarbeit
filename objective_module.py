@@ -12,6 +12,7 @@ class Objective():
                 #new_target_index = learningAgent.getAction(self.packet)
             self.target_index = new_target_index
             self.maneuver_start = self.packet.game_info.seconds_elapsed
+            self.since_maneuver_start = 0
 
             self.createNewManeuver()
             return True
@@ -36,9 +37,9 @@ class Objective():
             t = round(i)
 
 
-            while t > 0:
+            while t >= 0:
                 l -= v / 10
-                v += self.getAcceleration(v) /10
+                v += self.getAcceleration(v) /100
                 t -= 1
 
             reachable = (l + 500  < 0)
@@ -48,29 +49,13 @@ class Objective():
             if(possible_path_length < best_path[1] and reachable):
                 best_path = [i, possible_path_length]
 
-        self.maneuver_time = best_path[0] + 30
+        
+        if(best_path[0] > 60):
+            best_path[0] = 60
 
-        v0 = self.car_forward_velocity
-        t = 0
-        d = best_path[1]
+        self.maneuver_time = best_path[0]
 
 
-        max_speed = 1500
-
-        while d > 0:
-            d -= v0 / 10
-            v0 += self.getAcceleration(v0) / 100
-
-            if(v0 > max_speed):
-                v0 = max_speed
-            t += 1
-
-        t = t * 0.7
-
-        if(t > 60):
-            t = 60
-
-        self.maneuver_time = t
 
     
     def unforseenAction(self):
@@ -110,12 +95,16 @@ class Objective():
         t = round(self.maneuver_time - self.since_maneuver_start)
 
 
-        while t > 0:
+       
+
+        while t >= 0:
             l -= v / 10
-            v += self.getAcceleration(v) /10
+            v += self.getAcceleration(v) /100
             t -= 1
 
-        #if(l -500 > 0 ): return True
+        if(l - 1000 > 0 ): 
+            print(self.maneuver_time)
+            return True
 
 
         return False

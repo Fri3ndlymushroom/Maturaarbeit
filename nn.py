@@ -172,8 +172,6 @@ class QLearningAgent:
 
         # den letzten schritt beurteilen
         if not self.step == 1:
-
-
             self.step_reward = self.getReward(self_car, packet)
 
             self.episode_reward += self.step_reward
@@ -182,7 +180,7 @@ class QLearningAgent:
                     (self.old_state, self.action, self.step_reward, self.state_now, self.done))
 
 
-            if self.step == self.STEPS_PER_EPISODE: self.done = True
+            if self.step + 1 == self.STEPS_PER_EPISODE: self.done = True
             
             agent.train(self.done, self.step)
 
@@ -206,7 +204,7 @@ class QLearningAgent:
 
 
 
-        print(f"step: {self.step}/{self.STEPS_PER_EPISODE}, total: {self.total_step}, ")
+        print(f"Step: {self.step}/{self.STEPS_PER_EPISODE}, Total: {self.total_step}, ")
 
         return self.action
 
@@ -233,7 +231,7 @@ class QLearningAgent:
         self.reward_info.got_goals = packet.teams[1].score
 
         reward = self.reward_info.made_shots + 10 * self.reward_info.made_goals + \
-                self.reward_info.made_saves - 10 * self.reward_info.made_got_goals
+                self.reward_info.made_saves - 10 * self.reward_info.made_got_goals  - 100
         
         return reward
 
