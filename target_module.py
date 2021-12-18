@@ -12,8 +12,12 @@ class Target():
 
         if target == 0:
             self.renderText("attack")
-            target_location_info = self.shootBallTowardsTarget(
+            if(self.index == 0):
+                target_location_info = self.shootBallTowardsTarget(
                 Vec3(100, 5213, 321.3875), Vec3(-100, 5213, 321.3875))
+            else:
+                target_location_info = self.shootBallTowardsTarget(
+                Vec3(100, -5213, 321.3875), Vec3(-100, -5213, 321.3875))
         elif target == 1:
             self.renderText("defend")
             target_location_info = self.shootBallTowardsTarget(
@@ -22,10 +26,10 @@ class Target():
             )
         elif target == 2:
             self.renderText("base line")
-            target_location_info = [Vec3(0, -4200, 0), Vec3(0,1,0)]
+            target_location_info = [Vec3(0, -3800, 0), Vec3(0,1,0)]
         elif target == 3:
             self.renderText("ready")
-            target_location_info = [Vec3(0, 4200, 0), Vec3(0,1,0)]
+            target_location_info = [Vec3(0, 3800, 0), Vec3(0,1,0)]
         elif target == 4:
             self.renderText("contact")
             target_location_info = [self.ball_location, Orientation(self.car_rotation ).forward]

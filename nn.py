@@ -153,8 +153,8 @@ class QLearningAgent:
             if not (self.episode == 0):
                 self.episode_rewards.append(self.episode_reward)
 
-            print("===================================Episode {self.episode} evaluation===================================")
-            print(f"Last: {self.episode_reward}, Average: {sum(self.episode_rewards) / len(self.episode_rewards)}, Max: {np.argmax(self.episode_rewards)}, Min: {np.argmin(self.episode_rewards)}")
+            print(f"===================================Episode {self.episode} evaluation===================================")
+            print(f"Last: {self.episode_reward}, Average: {sum(self.episode_rewards) / len(self.episode_rewards)}, Max: {self.episode_rewards[np.argmax(self.episode_rewards)]}, Min: {self.episode_rewards[np.argmin(self.episode_rewards)]}")
             print("=============================================================================================")
 
             self.episode += 1

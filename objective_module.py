@@ -9,7 +9,8 @@ class Objective():
             new_target_index = self.target_index
             if(self.since_maneuver_start > 1):
                 new_target_index = 0
-                #new_target_index = learningAgent.getAction(self.packet)
+                if(self.index == 0):
+                    new_target_index = learningAgent.getAction(self.packet)
             self.target_index = new_target_index
             self.maneuver_start = self.packet.game_info.seconds_elapsed
             self.since_maneuver_start = 0
@@ -30,34 +31,27 @@ class Objective():
             possible_path_length = self.setPath(
                     target_location, target_direction).length
 
-
-
             v = self.car_forward_velocity
             l = possible_path_length
             t = round(i)
 
-
             while t >= 0:
                 l -= v / 10
-                v += self.getAcceleration(v) /100
+                v += self.getAcceleration(v) / 100
                 t -= 1
 
-            reachable = (l + 500  < 0)
+            reachable = (l < 0)
 
-            if(i == 59): reachable= True
+            if(i == 59): reachable = True
 
             if(possible_path_length < best_path[1] and reachable):
                 best_path = [i, possible_path_length]
 
-        
         if(best_path[0] > 60):
             best_path[0] = 60
 
         self.maneuver_time = best_path[0]
 
-
-
-    
     def unforseenAction(self):
 
         # not inited
@@ -66,13 +60,12 @@ class Objective():
             self.last_time = self.packet.game_info.seconds_elapsed
             return True
 
-
         # no time left
         time = self.packet.game_info.seconds_elapsed
         delta_time = round(359/60*(time - self.last_time) * 10)
 
         if(delta_time > 1):
-            
+
             prediction = self.get_ball_prediction_struct().slices
             last_prediction = self.last_prediction
 
@@ -87,7 +80,6 @@ class Objective():
             if(deviation > 35):
                 return True
 
-
         # not reachable
 
         v = self.car_forward_velocity
@@ -95,16 +87,14 @@ class Objective():
         t = round(self.maneuver_time - self.since_maneuver_start)
 
 
-       
+    
 
-        while t >= 0:
+        """while t >= 0:
             l -= v / 10
             v += self.getAcceleration(v) /100
             t -= 1
 
         if(l - 1000 > 0 ): 
-            print(self.maneuver_time)
-            return True
-
+            return True"""
 
         return False
