@@ -60,9 +60,11 @@ class MyBot(BaseAgent, Objective, Target, Path, Controlls, Renderer, Helpers, Se
         self.maneuver_start = 0  # maneuver start time
         self.since_maneuver_start = 0  # passed time
 
+        # Prediction log for ball position deviation
         self.last_prediction = None
         self.last_time = None
 
+        # min curve radius
         self.min_rad = 400
 
     def initialize_agent(self):
@@ -137,11 +139,3 @@ class MyBot(BaseAgent, Objective, Target, Path, Controlls, Renderer, Helpers, Se
 
         self.renderer.end_rendering()
         return controls
-
-
-
-
-
-
-
-

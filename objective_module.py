@@ -5,6 +5,8 @@ from nn import learningAgent
 class Objective():
     def setObjective(self):
 
+        #check if unforseen action and if new strategy
+
         if(self.unforseenAction()):
             new_target_index = self.target_index
             if(self.since_maneuver_start > 1):
@@ -68,8 +70,6 @@ class Objective():
 
     def unforseenAction(self):
 
-        
-
         # not inited
         if self.last_prediction == None or self.since_maneuver_start > self.maneuver_time:
             self.last_prediction = self.get_ball_prediction_struct().slices
@@ -94,7 +94,6 @@ class Objective():
 
             self.last_prediction = self.get_ball_prediction_struct().slices
             self.last_time = self.packet.game_info.seconds_elapsed
-            print(deviation)
             if(deviation > 100):
                 return True
         return False

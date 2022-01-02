@@ -32,8 +32,7 @@ class Target():
             target_location_info = [Vec3(0, 2800, 0), Vec3(0,1,0)]
 
 
-
-
+        # testing targets
         elif target == 100:
             self.renderText("random")
 

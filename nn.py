@@ -25,7 +25,7 @@ class ModelAgent():
         self.DISCOUNT = 0.99
 
         try:
-            self.model = tf.keras.models.load_model("src/training/target4")
+            self.model = tf.keras.models.load_model("src/training/target")
             self.target_model = self.create_model()
             self.target_model.set_weights(self.model.get_weights())
         except:
@@ -112,7 +112,7 @@ class ModelAgent():
 
         if self.target_update_counter > self.UPDATE_TARGET_EVERY:
             print("-------update target-------")
-            self.model.save("src/training/target4")
+            self.model.save("src/training/target")
             self.target_model.set_weights(self.model.get_weights())
             self.target_update_counter = 0
 
@@ -129,6 +129,7 @@ class QLearningAgent:
         self.done = False
         self.total_step = 1
         self.STEPS_PER_EPISODE = 50
+        self.step_reward = 0
 
         # epsilon
         self.epsilon = 1
@@ -169,7 +170,7 @@ class QLearningAgent:
                     suma += reward
                 average = suma / len(self.rewardTracker)
 
-                f = open("src/logs/traininglog4.txt", "a")
+                f = open("src/logs/traininglog.txt", "a")
                 f.write(str(average) + "\n")
                 f.close()
 
@@ -194,7 +195,7 @@ class QLearningAgent:
             ball_location.y / 5120
         ]
 
-        # den letzten schritt beurteilen
+        # evaluate last step
         if not self.step == 1:
             self.step_reward = self.getReward(self_car, packet)
 
@@ -209,7 +210,7 @@ class QLearningAgent:
             if SHOULD_TRAIN:
                 agent.train(self.done, self.step)
 
-        # neuen schritt machen
+        # new step
         if np.random.random() > self.epsilon or not EPSILON_DECAY_ALLOWED:
             # Get action from Q table
             self.action = np.argmax(agent.get_qs(self.state_now))
@@ -264,8 +265,6 @@ class QLearningAgent:
 
         """ reward = self.reward_info.made_shots + 10 * self.reward_info.made_goals + \
             self.reward_info.made_saves - 10 * self.reward_info.made_got_goals"""
-
-        # log
 
         return defaultreward
 

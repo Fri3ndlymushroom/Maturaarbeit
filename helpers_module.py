@@ -9,6 +9,7 @@ class Helpers():
             (self.maneuver_start*10 - self.packet.game_info.seconds_elapsed*10)
 
     def isNearWall(self):
+        # Checks if is near wall
         x = self.ball_location.x
         y = self.ball_location.y
 
@@ -22,6 +23,9 @@ class Helpers():
 
 
     def predictBallLocation(self, time):
+
+        # get ball location at x time
+
         if time > 60:
             time = 60
 
@@ -35,7 +39,8 @@ class Helpers():
 
     def getSteeringRadius(self, v = None):
 
-        
+        # get Steering radius with curren velocity
+
         velocity = self.car_forward_velocity
         if(v): velocity = v
         """
@@ -84,9 +89,13 @@ class Helpers():
 
         radius = 1/curvature
 
+        radius = radius * 1
+
         return(radius)
 
     def getAcceleration(self, car_velocity):
+
+        # get acceleration with current velocity
 
         acceleration = 0
         vals = []
@@ -109,6 +118,9 @@ class Helpers():
         return acceleration
 
     def checkIfOutOfMap(self, locs):
+
+        # check if location is out of game field
+
         possible = True
         for loc in locs:
             # general bounds
