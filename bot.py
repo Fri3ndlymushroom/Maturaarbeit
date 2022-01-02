@@ -18,7 +18,7 @@ from controlls_module import Controlls
 from renderer_module import Renderer
 from helpers_module import Helpers
 from sequence_module import Sequences
-
+import random
 
 
 
@@ -130,6 +130,10 @@ class MyBot(BaseAgent, Objective, Target, Path, Controlls, Renderer, Helpers, Se
         if self.isNearWall():
             controls.steer = steer_toward_target(self.my_car, self.ball_location)
             controls.throttle = 1
+
+        #if bot gets stuck in training
+        if(self.index == 1 and random.randint(0, 1000) == 0):
+            controls.jump = True
 
         self.renderer.end_rendering()
         return controls

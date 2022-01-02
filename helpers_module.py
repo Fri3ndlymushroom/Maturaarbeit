@@ -33,8 +33,11 @@ class Helpers():
 
         return Vec3(ball_prediction_time.x, ball_prediction_time.y, ball_prediction_time.z)
 
-    def getSteeringRadius(self):
+    def getSteeringRadius(self, v = None):
+
+        
         velocity = self.car_forward_velocity
+        if(v): velocity = v
         """
         curvature = 0.0069
         if velocity > 2300: curvature = 0.0008

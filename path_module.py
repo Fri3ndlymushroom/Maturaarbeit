@@ -26,8 +26,9 @@ class Path():
             target_location, target_direction)
         return path
 
-    def computePossibleArcLineArcDrivePaths(self, target_location, target_direction):
+    def computePossibleArcLineArcDrivePaths(self, target_location, target_direction, preset_radius = None):
         steering_radius = self.getSteeringRadius()
+        if(preset_radius): steering_radius = preset_radius
 
         if(steering_radius < self.min_rad):
             steering_radius = self.min_rad

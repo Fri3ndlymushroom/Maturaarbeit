@@ -10,8 +10,11 @@ from matplotlib.animation import FuncAnimation
 
 tf.get_logger().setLevel(3)
 
-ACTION_SPACE_SIZE = 5
-OBSERVATION_SPACE_SIZE = 6
+#=========[Config]=========#
+ACTION_SPACE_SIZE = 4
+OBSERVATION_SPACE_SIZE = 3
+EPSILON_DECAY_ALLOWED = False
+SHOULD_TRAIN = False
 
 
 class ModelAgent():
@@ -21,9 +24,8 @@ class ModelAgent():
         self.MINIBATCH_SIZE = 64
         self.DISCOUNT = 0.99
 
-
         try:
-            self.model = tf.keras.models.load_model("src/training/target")
+            self.model = tf.keras.models.load_model("src/training/target4")
             self.target_model = self.create_model()
             self.target_model.set_weights(self.model.get_weights())
         except:
@@ -36,7 +38,7 @@ class ModelAgent():
 
         # --Replay memory-- # The network is trained with a random batch of the replay memory
         # # Deque is a list that has a max len and pushes out the oldest value
-        self.REPLAY_MEMORY_SIZE = 5000
+        self.REPLAY_MEMORY_SIZE = 1000
         self.MIN_REPLAY_MEMORY_SIZE = 100
         self.replay_memory = deque(maxlen=self.REPLAY_MEMORY_SIZE)
 
@@ -49,13 +51,15 @@ class ModelAgent():
         model.add(tf.keras.layers.Dense(OBSERVATION_SPACE_SIZE, input_shape=(
             OBSERVATION_SPACE_SIZE,), activation="relu"))
 
-        model.add(tf.keras.layers.Dense(8, activation="relu"))
-        model.add(tf.keras.layers.Dense(8, activation="relu"))
+        model.add(tf.keras.layers.Dense(64, activation="relu"))
+        model.add(tf.keras.layers.Dense(64, activation="relu"))
+        model.add(tf.keras.layers.Dense(64, activation="relu"))
+        model.add(tf.keras.layers.Dense(64, activation="relu"))
 
         model.add(tf.keras.layers.Dense(
             ACTION_SPACE_SIZE, activation="linear"))
         model.compile(loss="mse", optimizer=tf.keras.optimizers.Adam(
-            lr=0.01), metrics=['accuracy']) #0.001
+            lr=0.01), metrics=['accuracy'])  # 0.001
         return model
 
     def update_replay_memory(self, transition):
@@ -108,7 +112,7 @@ class ModelAgent():
 
         if self.target_update_counter > self.UPDATE_TARGET_EVERY:
             print("-------update target-------")
-            self.model.save("src/training/target")
+            self.model.save("src/training/target4")
             self.target_model.set_weights(self.model.get_weights())
             self.target_update_counter = 0
 
@@ -132,7 +136,7 @@ class QLearningAgent:
         self.MIN_EPSILON = 0.001
 
         # penaltys
-        self.MOVE_PENALTY = 1
+        self.rewardTracker = []
 
         self.reward_info = rewardInfo()
 
@@ -145,30 +149,50 @@ class QLearningAgent:
         ball_location = Vec3(packet.game_ball.physics.location)
         game_time = packet.game_info.seconds_elapsed
 
-
         if self.step == self.STEPS_PER_EPISODE or self.done:
-
-            #print("episode: ", self.episode, " reward: ", self.episode_reward)
             #addDatapoint([self.epsilon, self.episode_reward])
             if not (self.episode == 0):
                 self.episode_rewards.append(self.episode_reward)
 
-            print(f"===================================Episode {self.episode} evaluation===================================")
-            print(f"Last: {self.episode_reward}, Average: {sum(self.episode_rewards) / len(self.episode_rewards)}, Max: {self.episode_rewards[np.argmax(self.episode_rewards)]}, Min: {self.episode_rewards[np.argmin(self.episode_rewards)]}")
-            print("=============================================================================================")
+            print(
+                f"===================================Episode {self.episode} evaluation===================================")
+            print(
+                f"Last: {self.episode_reward}, Average: {sum(self.episode_rewards) / len(self.episode_rewards)}, Max: {self.episode_rewards[np.argmax(self.episode_rewards)]}, Min: {self.episode_rewards[np.argmin(self.episode_rewards)]}")
+            print(
+                "=============================================================================================")
+
+            self.rewardTracker.append(self.episode_reward)
+
+            if(len(self.rewardTracker) == 1):
+                suma = 0
+                for reward in self.rewardTracker:
+                    suma += reward
+                average = suma / len(self.rewardTracker)
+
+                f = open("src/logs/traininglog4.txt", "a")
+                f.write(str(average) + "\n")
+                f.close()
+
+                self.rewardTracker = []
 
             self.episode += 1
             self.step = 1
             self.episode_reward = 0
             self.done = False
 
-        self.state_now = [
+        # test 1
+        """self.state_now = [
             self_car_location.x / 4096, self_car_location.y / 5120,
             enemy_car_location.x / 4096, enemy_car_location.y / 5120,
             ball_location.x / 4096, ball_location.y / 5120
+        ]"""
+
+        # test 2
+        self.state_now = [
+            Vec3.length(self_car_location - ball_location) / 13200,
+            Vec3.length(enemy_car_location - ball_location) / 13200,
+            ball_location.y / 5120
         ]
-
-
 
         # den letzten schritt beurteilen
         if not self.step == 1:
@@ -177,15 +201,16 @@ class QLearningAgent:
             self.episode_reward += self.step_reward
 
             agent.update_replay_memory(
-                    (self.old_state, self.action, self.step_reward, self.state_now, self.done))
+                (self.old_state, self.action, self.step_reward, self.state_now, self.done))
 
+            if self.step + 1 == self.STEPS_PER_EPISODE:
+                self.done = True
 
-            if self.step + 1 == self.STEPS_PER_EPISODE: self.done = True
-            
-            agent.train(self.done, self.step)
+            if SHOULD_TRAIN:
+                agent.train(self.done, self.step)
 
         # neuen schritt machen
-        if np.random.random() > self.epsilon:
+        if np.random.random() > self.epsilon or not EPSILON_DECAY_ALLOWED:
             # Get action from Q table
             self.action = np.argmax(agent.get_qs(self.state_now))
         else:
@@ -202,18 +227,16 @@ class QLearningAgent:
         self.total_step += 1
         self.last_call = game_time
 
-
-
-        print(f"Step: {self.step}/{self.STEPS_PER_EPISODE}, Total: {self.total_step}, ")
+        print(
+            f"Step: {self.step}/{self.STEPS_PER_EPISODE}, Total: {self.total_step}, Reward: {self.step_reward}")
 
         return self.action
 
-
     def getReward(self, self_car, packet):
 
+
+        # old reward system
         # 0.1*touch + shot + save + 10*goal - 10*concede - shot_on_own_goal
-
-
 
         score_info = self_car.score_info
         # shots
@@ -230,11 +253,21 @@ class QLearningAgent:
             self.reward_info.got_goals
         self.reward_info.got_goals = packet.teams[1].score
 
-        reward = self.reward_info.made_shots + 10 * self.reward_info.made_goals + \
-                self.reward_info.made_saves - 10 * self.reward_info.made_got_goals  - 100
-        
-        return reward
+        defaultreward = -10
 
+        if(self.reward_info.made_shots > 0): defaultreward= -6
+        if(self.reward_info.made_saves > 0): defaultreward= -3
+        if(self.reward_info.made_got_goals > 0): defaultreward= -20
+        if(self.reward_info.made_goals > 0): defaultreward=0
+
+
+
+        """ reward = self.reward_info.made_shots + 10 * self.reward_info.made_goals + \
+            self.reward_info.made_saves - 10 * self.reward_info.made_got_goals"""
+
+        # log
+
+        return defaultreward
 
 
 class rewardInfo:
@@ -261,23 +294,21 @@ y_norm = []
 y_plot = []
 plt.ion()
 
+
 def addDatapoint(data):
     global y_plot
     y_norm.append(data)
     y_plot = np.array(y_norm).reshape(len(y_norm[0]), len(y_norm))
-
 
     if(len(y_plot[0]) % 10 == 0):
         getNewChart(y_plot)
 
 
 index = 0
+
+
 def getNewChart(data):
     plt.cla()
     plt.plot(y_norm)
     plt.draw()
     plt.pause(0.01)
-
-
-
-

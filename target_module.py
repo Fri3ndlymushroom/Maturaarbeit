@@ -29,10 +29,7 @@ class Target():
             target_location_info = [Vec3(0, -3800, 0), Vec3(0,1,0)]
         elif target == 3:
             self.renderText("ready")
-            target_location_info = [Vec3(0, 3800, 0), Vec3(0,1,0)]
-        elif target == 4:
-            self.renderText("contact")
-            target_location_info = [self.ball_location, Orientation(self.car_rotation ).forward]
+            target_location_info = [Vec3(0, 2800, 0), Vec3(0,1,0)]
 
 
 
@@ -80,7 +77,7 @@ class Target():
         direction_of_approach = Vec3.clamp2D(
             direction=car_to_ball_direction, start=ball_to_left_target_direction, end=ball_to_right_target_direction)
         # offset would be 92.75 but is better with a greater value for arc line arc
-        offset_ball_location = ball_location - direction_of_approach * 90
+        offset_ball_location = ball_location - direction_of_approach * 100
 
 
         return [offset_ball_location, direction_of_approach]
